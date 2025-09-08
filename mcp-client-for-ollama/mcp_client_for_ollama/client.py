@@ -25,6 +25,8 @@ from .utils.streaming import StreamingManager
 from .utils.tool_display import ToolDisplayManager
 from .utils.hil_manager import HumanInTheLoopManager
 from .utils.fzf_style_completion import FZFStyleCompleter
+from .mcphub.mcphub_manager import MCPHubManager
+from .mcphub.smithery_client import SmitheryClient
 
 
 class MCPClient:
@@ -37,7 +39,7 @@ class MCPClient:
         self.console = Console()
         self.config_manager = ConfigManager(self.console)
         # Initialize the server connector
-        self.server_connector = ServerConnector(self.exit_stack, self.console)
+        self.server_connector = ServerConnector(self.exit_stack, self.console, self.config_manager)
         # Initialize the model manager
         self.model_manager = ModelManager(console=self.console, default_model=model, ollama=self.ollama)
         # Initialize the model config manager
@@ -506,6 +508,17 @@ class MCPClient:
                     self.hil_manager.toggle()
                     continue
 
+                if query.lower() in ['mcphub', 'hub']:
+                    smithery_client = SmitheryClient(self.config_manager)
+                    mcphub_manager = MCPHubManager(self.console, smithery_client, self.config_manager, self)
+                    await mcphub_manager.run()
+                    # Redisplay the main menu and status after exiting the hub
+                    self.clear_console()
+                    self.display_available_tools()
+                    self.display_current_model()
+                    self.print_help()
+                    continue
+
                 # Check if query is too short and not a special command
                 if len(query.strip()) < 5:
                     self.console.print("[yellow]Query must be at least 5 characters long.[/yellow]")
@@ -558,6 +571,7 @@ class MCPClient:
             "• Type [bold]show-metrics[/bold] or [bold]sm[/bold] to toggle performance metrics display\n\n"
 
             "[bold cyan]MCP Servers and Tools:[/bold cyan]\n"
+            "• Type [bold]mcphub[/bold] or [bold]hub[/bold] to open the MCP-HUB for server management\n"
             "• Type [bold]tools[/bold] or [bold]t[/bold] to configure tools\n"
             "• Type [bold]show-tool-execution[/bold] or [bold]ste[/bold] to toggle tool execution display\n"
             "• Type [bold]human-in-the-loop[/bold] or [bold]hil[/bold] to toggle Human-in-the-Loop confirmations\n"

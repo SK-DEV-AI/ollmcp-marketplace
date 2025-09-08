@@ -254,4 +254,28 @@ class ConfigManager:
             if "enabled" in config_data["hilSettings"]:
                 validated["hilSettings"]["enabled"] = bool(config_data["hilSettings"]["enabled"])
 
+        if "installed_servers" in config_data and isinstance(config_data["installed_servers"], list):
+            validated["installed_servers"] = config_data["installed_servers"]
+
         return validated
+
+    def get_installed_servers(self, config_name: Optional[str] = None) -> list:
+        """Get the list of installed servers."""
+        config_data = self.load_configuration(config_name)
+        return config_data.get("installed_servers", [])
+
+    def add_installed_server(self, server_data: Dict[str, Any], config_name: Optional[str] = None):
+        """Add a server to the list of installed servers."""
+        config_data = self.load_configuration(config_name)
+        installed_servers = config_data.get("installed_servers", [])
+        installed_servers.append(server_data)
+        config_data["installed_servers"] = installed_servers
+        self.save_configuration(config_data, config_name)
+
+    def remove_installed_server(self, server_name: str, config_name: Optional[str] = None):
+        """Remove a server from the list of installed servers."""
+        config_data = self.load_configuration(config_name)
+        installed_servers = config_data.get("installed_servers", [])
+        updated_servers = [s for s in installed_servers if s.get("qualifiedName") != server_name]
+        config_data["installed_servers"] = updated_servers
+        self.save_configuration(config_data, config_name)
