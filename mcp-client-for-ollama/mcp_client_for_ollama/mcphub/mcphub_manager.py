@@ -1,4 +1,5 @@
 import asyncio
+import httpx
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -33,8 +34,10 @@ class MCPHubManager:
                 elif choice == "4":
                     await self.view_installed_servers()
                 elif choice == "5":
+                    await self.inspect_server_from_registry()
+                elif choice == "6":
                     await self.configure_api_key()
-                elif choice in ["6", "q", "quit"]:
+                elif choice in ["7", "q", "quit"]:
                     break
                 else:
                     self.console.print("[red]Invalid choice. Please try again.[/red]")
@@ -49,8 +52,9 @@ class MCPHubManager:
 2. Install a server
 3. Uninstall a server
 4. View installed servers
-5. Configure Smithery API Key
-6. Back to main menu (q, quit)
+5. Inspect server from registry
+6. Configure Smithery API Key
+7. Back to main menu (q, quit)
 """
         self.console.print(Panel(Text.from_markup(menu_text), title="MCP-HUB", border_style="yellow"))
 
@@ -116,8 +120,13 @@ class MCPHubManager:
             with self.console.status(f"Getting details for {server_name}..."):
                 server_details = await self.smithery_client.get_server(server_name)
 
+            security_info = server_details.get("security", {})
+            scan_passed = security_info.get("scanPassed", False)
+            scan_text = "[bold green]Yes[/bold green]" if scan_passed else "[bold red]No[/bold red]"
+
             self.console.print(Panel(f"[bold]Name:[/bold] {server_details.get('displayName')}\n"
-                                   f"[bold]Description:[/bold] {server_details.get('description')}"))
+                                   f"[bold]Description:[/bold] {server_details.get('description')}\n"
+                                   f"[bold]Security Scan Passed:[/bold] {scan_text}"))
 
             # Handle configuration
             config = {}
@@ -197,26 +206,34 @@ class MCPHubManager:
 
             from rich.table import Table
             table = Table(title="Installed Servers")
-            table.add_column("Name", style="cyan")
-            table.add_column("Description")
+            table.add_column("ID", style="magenta")
+            table.add_column("Display Name", style="cyan")
+            table.add_column("Qualified Name", style="dim")
 
-            for server in installed_servers:
-                table.add_row(server.get('qualifiedName'), server.get('description'))
+            for i, server in enumerate(installed_servers):
+                table.add_row(str(i + 1), server.get('displayName'), server.get('qualifiedName'))
 
             self.console.print(table)
 
-            server_name = await self.prompt_session.prompt_async("Enter the name of the server to uninstall: ")
-
-            # Check if the server exists before trying to remove it
-            if not any(s.get("qualifiedName") == server_name for s in installed_servers):
-                self.console.print(f"[red]Error: Server '{server_name}' is not installed.[/red]")
+            choice = await self.prompt_session.prompt_async("Enter the ID of the server to uninstall (or press Enter to cancel): ")
+            if not choice:
                 return
 
+            server_index = int(choice) - 1
+            if not (0 <= server_index < len(installed_servers)):
+                self.console.print("[red]Invalid ID.[/red]")
+                return
+
+            server_to_uninstall = installed_servers[server_index]
+            server_name = server_to_uninstall.get("qualifiedName")
+
             self.config_manager.remove_installed_server(server_name)
-            self.console.print(f"[green]Server '{server_name}' uninstalled successfully.[/green]")
+            self.console.print(f"[green]Server '{server_name}' has been uninstalled.[/green]")
 
             # Reload servers to make the change effective immediately
-            await self.client.reload_servers()
+            with self.console.status("Reloading servers to apply changes..."):
+                await self.client.reload_servers()
+            self.console.print("[green]Server has been removed from the current session.[/green]")
 
         except Exception as e:
             self.console.print(f"[red]Error uninstalling server: {e}[/red]")
@@ -269,6 +286,44 @@ class MCPHubManager:
             self.console.print("[red]Invalid input. Please enter a valid number.[/red]")
         except (KeyboardInterrupt, EOFError):
             self.console.print("\n")
+
+    async def inspect_server_from_registry(self):
+        """Fetches and displays details for any server from the registry."""
+        try:
+            server_name = await self.prompt_session.prompt_async("Enter the qualified name of the server to inspect: ")
+            if not server_name:
+                return
+
+            with self.console.status(f"Fetching details for {server_name}..."):
+                server = await self.smithery_client.get_server(server_name)
+
+            security_info = server.get("security", {})
+            scan_passed = security_info.get("scanPassed", False)
+            scan_text = "[bold green]Yes[/bold green]" if scan_passed else "[bold red]No[/bold red]"
+
+            summary_text = f"[bold]Display Name:[/bold] {server.get('displayName')}\n"
+            summary_text += f"[bold]Qualified Name:[/bold] {server.get('qualifiedName')}\n"
+            summary_text += f"[bold]Description:[/bold] {server.get('description')}\n"
+            summary_text += f"[bold]Homepage:[/bold] [link={server.get('homepage')}]{server.get('homepage')}[/link]\n"
+            summary_text += f"[bold]Security Scan Passed:[/bold] {scan_text}\n\n"
+            summary_text += "[bold]Tools:[/bold]\n"
+
+            tools = server.get("tools", [])
+            if tools:
+                for tool in tools:
+                    summary_text += f"  - {tool.get('name')}: {tool.get('description')}\n"
+            else:
+                summary_text += "  - No tools listed for this server."
+
+            self.console.print(Panel(Text.from_markup(summary_text), title="[bold cyan]Registry Server Details[/bold cyan]", border_style="cyan", expand=False))
+
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                self.console.print(f"[red]Server '{server_name}' not found in the registry.[/red]")
+            else:
+                self.console.print(f"[red]Error fetching server details: {e}[/red]")
+        except Exception as e:
+            self.console.print(f"[red]An unexpected error occurred: {e}[/red]")
 
 
     async def configure_api_key(self):
