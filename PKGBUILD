@@ -7,7 +7,7 @@ pkgver=0.18.1.r0.gdeadbeef
 pkgrel=1
 pkgdesc="A TUI client for interacting with Ollama models and MCP servers, now with MCP-HUB."
 arch=('any')
-url="https://github.com/jonigl/mcp-client-for-ollama"
+url="https://github.com/SK-DEV-AI/ollmcp-marketplace"
 license=('MIT')
 depends=('python')
 makedepends=('git' 'python-build' 'python-installer' 'python-wheel')
@@ -16,7 +16,7 @@ optdepends=(
     'nodejs: for running JavaScript-based MCP servers'
 )
 # This package builds from the latest git source.
-source=("git+https://github.com/jonigl/mcp-client-for-ollama.git")
+source=("git+https://github.com/SK-DEV-AI/ollmcp-marketplace.git")
 sha256sums=('SKIP')
 
 # This function automatically generates the version number from the git history.
