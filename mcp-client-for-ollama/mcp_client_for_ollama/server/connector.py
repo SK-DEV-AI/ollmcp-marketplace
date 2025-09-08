@@ -330,7 +330,11 @@ class ServerConnector:
         Returns:
             StdioServerParameters or None if invalid
         """
-        server_config = server["config"]
+        server_config = server.get("config")
+        if not server_config:
+            self.console.print(f"[yellow]Warning: Server '{server['name']}' has a config-type connection but is missing the 'config' object. Skipping.[/yellow]")
+            return None
+
         command = server_config.get("command")
 
         # Validate the command exists in PATH

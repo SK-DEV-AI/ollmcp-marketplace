@@ -8,6 +8,7 @@ class SmitheryClient:
         self.config_manager = config_manager
         self.api_key = self.get_api_key()
         self.base_url = "https://registry.smithery.ai"
+        self.server_cache = {}
 
     def get_api_key(self) -> str | None:
         """Retrieves the Smithery API key from the configuration."""
@@ -33,7 +34,10 @@ class SmitheryClient:
             return response.json()
 
     async def get_server(self, server_id: str):
-        """Gets the details of a single server."""
+        """Gets the details of a single server, using a cache."""
+        if server_id in self.server_cache:
+            return self.server_cache[server_id]
+
         if not self.api_key:
             raise ValueError("Smithery API key is not set.")
 
@@ -41,4 +45,6 @@ class SmitheryClient:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{self.base_url}/servers/{server_id}", headers=headers)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            self.server_cache[server_id] = data
+            return data

@@ -31,8 +31,10 @@ class MCPHubManager:
                 elif choice == "3":
                     await self.uninstall_server()
                 elif choice == "4":
+                    await self.view_installed_servers()
+                elif choice == "5":
                     await self.configure_api_key()
-                elif choice in ["5", "q", "quit"]:
+                elif choice in ["6", "q", "quit"]:
                     break
                 else:
                     self.console.print("[red]Invalid choice. Please try again.[/red]")
@@ -46,8 +48,9 @@ class MCPHubManager:
 1. Search for servers
 2. Install a server
 3. Uninstall a server
-4. Configure Smithery API Key
-5. Back to main menu (q, quit)
+4. View installed servers
+5. Configure Smithery API Key
+6. Back to main menu (q, quit)
 """
         self.console.print(Panel(Text.from_markup(menu_text), title="MCP-HUB", border_style="yellow"))
 
@@ -204,6 +207,11 @@ class MCPHubManager:
 
             server_name = await self.prompt_session.prompt_async("Enter the name of the server to uninstall: ")
 
+            # Check if the server exists before trying to remove it
+            if not any(s.get("qualifiedName") == server_name for s in installed_servers):
+                self.console.print(f"[red]Error: Server '{server_name}' is not installed.[/red]")
+                return
+
             self.config_manager.remove_installed_server(server_name)
             self.console.print(f"[green]Server '{server_name}' uninstalled successfully.[/green]")
 
@@ -212,6 +220,56 @@ class MCPHubManager:
 
         except Exception as e:
             self.console.print(f"[red]Error uninstalling server: {e}[/red]")
+
+    async def view_installed_servers(self):
+        """Displays details for installed servers."""
+        self.console.print(Panel("Viewing installed servers...", border_style="blue"))
+        installed_servers = self.config_manager.get_installed_servers()
+
+        if not installed_servers:
+            self.console.print("[yellow]No servers are currently installed.[/yellow]")
+            return
+
+        table = Table(title="Installed MCP Servers")
+        table.add_column("ID", style="magenta")
+        table.add_column("Display Name", style="cyan")
+        table.add_column("Qualified Name", style="dim")
+
+        for i, server in enumerate(installed_servers):
+            table.add_row(str(i + 1), server.get('displayName'), server.get('qualifiedName'))
+
+        self.console.print(table)
+
+        try:
+            choice = await self.prompt_session.prompt_async("Enter the ID of the server to view (or press Enter to return): ")
+            if not choice:
+                return
+
+            server_index = int(choice) - 1
+            if 0 <= server_index < len(installed_servers):
+                server = installed_servers[server_index]
+
+                summary_text = f"[bold]Display Name:[/bold] {server.get('displayName')}\n"
+                summary_text += f"[bold]Qualified Name:[/bold] {server.get('qualifiedName')}\n"
+                summary_text += f"[bold]Description:[/bold] {server.get('description')}\n"
+                summary_text += f"[bold]Homepage:[/bold] [link={server.get('homepage')}]{server.get('homepage')}[/link]\n\n"
+                summary_text += "[bold]Saved Configuration:[/bold]\n"
+
+                config = server.get("config", {})
+                if config:
+                    for key, value in config.items():
+                        summary_text += f"  - {key}: {value}\n"
+                else:
+                    summary_text += "  - No configuration was required or set for this server."
+
+                self.console.print(Panel(Text.from_markup(summary_text), title="[bold cyan]Server Details[/bold cyan]", border_style="cyan", expand=False))
+            else:
+                self.console.print("[red]Invalid ID.[/red]")
+        except (ValueError, IndexError):
+            self.console.print("[red]Invalid input. Please enter a valid number.[/red]")
+        except (KeyboardInterrupt, EOFError):
+            self.console.print("\n")
+
 
     async def configure_api_key(self):
         """Handles the API key configuration workflow."""
