@@ -72,6 +72,7 @@ class MCPClient:
         # Metrics display settings
         self.show_metrics = False  # By default, don't show metrics after each query
         self.default_configuration_status = False  # Track if default configuration was loaded successfully
+        self.current_config_name = "default" # Track the currently loaded configuration name
 
         # Store server connection parameters for reloading
         self.server_connection_params = {
@@ -510,7 +511,7 @@ class MCPClient:
 
                 if query.lower() in ['mcphub', 'hub']:
                     smithery_client = SmitheryClient(self.config_manager)
-                    mcphub_manager = MCPHubManager(self.console, smithery_client, self.config_manager, self)
+                    mcphub_manager = MCPHubManager(self.console, smithery_client, self.config_manager, self, self.current_config_name)
                     await mcphub_manager.run()
                     # Redisplay the main menu and status after exiting the hub
                     self.clear_console()
@@ -809,12 +810,15 @@ class MCPClient:
             if "enabled" in config_data["hilSettings"]:
                 self.hil_manager.set_enabled(config_data["hilSettings"]["enabled"])
 
+        self.current_config_name = config_name
+        self.console.print(f"[green]Configuration '{config_name}' loaded.[/green]")
         return True
 
     def reset_configuration(self):
         """Reset tool configuration to default (all tools enabled)"""
         # Use the ConfigManager to get the default configuration
         config_data = self.config_manager.reset_configuration()
+        self.current_config_name = "default"
 
         # Enable all tools in the tool manager
         self.tool_manager.enable_all_tools()
