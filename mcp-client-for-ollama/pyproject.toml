@@ -30,7 +30,7 @@ Homepage = "https://github.com/jonigl/mcp-client-for-ollama"
 Issues = "https://github.com/jonigl/mcp-client-for-ollama/issues"
 
 [tool.setuptools]
-packages = ["mcp_client_for_ollama", "mcp_client_for_ollama.config", "mcp_client_for_ollama.models", "mcp_client_for_ollama.server", "mcp_client_for_ollama.tools", "mcp_client_for_ollama.utils"]
+packages = { find = { exclude = ["tests", "tests.*", "scripts", "scripts.*", "cli-package", "cli-package.*", "misc", "misc.*"] } }
 
 [dependency-groups]
 dev = [

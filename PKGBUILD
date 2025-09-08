@@ -3,7 +3,9 @@
 pkgname='ollmcp-marketplace-git'
 _pkgname='ollmcp-marketplace'
 _subpkgname='mcp-client-for-ollama'
+
 pkgver=r24.c07d2be # This will be updated by pkgver()
+
 pkgrel=1
 pkgdesc="A TUI client for interacting with Ollama models and MCP servers, now with MCP-HUB."
 arch=('any')
