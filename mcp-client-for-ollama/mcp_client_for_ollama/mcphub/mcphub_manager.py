@@ -10,31 +10,6 @@ from .smithery_client import SmitheryClient
 from ..config.manager import ConfigManager
 
 
-def handle_api_key_error(func):
-    """A decorator to gracefully handle missing API key errors and prompt the user to set one."""
-    @functools.wraps(func)
-    async def wrapper(self, *args, **kwargs):
-        try:
-            return await func(self, *args, **kwargs)
-        except ValueError as e:
-            if "API key is not set" in str(e):
-                self.console.print(f"[bold yellow]A Smithery API key is required to {func.__name__.replace('_', ' ')}.[/bold yellow]")
-                self.console.print("Let's set it up now.")
-                await self.configure_api_key()
-                # After configuration, check if the key is now available
-                if self.smithery_client.get_api_key():
-                    self.console.print("[green]API Key set. Retrying action...[/green]")
-                    return await func(self, *args, **kwargs)  # Retry the original function
-                else:
-                    self.console.print("[yellow]Action cancelled because API key was not provided.[/yellow]")
-                    return None
-            else:
-                # Re-raise the exception if it's a different ValueError
-                self.console.print(f"[red]An unexpected value error occurred: {e}[/red]")
-                return None
-    return wrapper
-
-
 class MCPHubManager:
     """Manages the MCP-HUB TUI."""
 
@@ -95,15 +70,27 @@ class MCPHubManager:
 """
         self.console.print(Panel(Text.from_markup(menu_text), title="MCP-HUB", border_style="yellow"))
 
-    @handle_api_key_error
     async def search_servers(self):
         """Handles the server search workflow."""
-        self.console.print(Panel("You can use filters like 'owner:username' or 'is:verified'.", title="Advanced Search Tip", style="dim", border_style="blue"))
-        query = await self.prompt_session.prompt_async("Enter search query: ")
-        with self.console.status("Searching..."):
-            results = await self.smithery_client.search_servers(query)
-
-        if not results: return
+        try:
+            self.console.print(Panel("You can use filters like 'owner:username' or 'is:verified'.", title="Advanced Search Tip", style="dim", border_style="blue"))
+            query = await self.prompt_session.prompt_async("Enter search query: ", is_password=False)
+            with self.console.status("Searching..."):
+                results = await self.smithery_client.search_servers(query)
+        except ValueError as e:
+            if "API key is not set" in str(e):
+                self.console.print("[bold yellow]A Smithery API key is required to search for servers.[/bold yellow]")
+                await self.configure_api_key()
+                if self.smithery_client.api_key:
+                    self.console.print("[green]API Key set. Please try your search again.[/green]")
+                else:
+                    self.console.print("[yellow]Search cancelled because API key was not provided.[/yellow]")
+            else:
+                self.console.print(f"[red]An unexpected value error occurred: {e}[/red]")
+            return
+        except Exception as e:
+            self.console.print(f"[red]An unexpected error occurred during search: {e}[/red]")
+            return
 
         servers = results.get("servers", [])
         if not servers:
@@ -111,10 +98,10 @@ class MCPHubManager:
             return
 
         from rich.table import Table
-        table = Table(title="Smithery Registry Search Results")
-        table.add_column("Display Name", style="cyan", no_wrap=True)
-        table.add_column("Description", style="white")
-        table.add_column("Tools", style="green")
+        table = Table(title="Smithery Registry Search Results", expand=True)
+        table.add_column("Display Name", style="cyan", no_wrap=True, width=30)
+        table.add_column("Description", style="white", ratio=1)
+        table.add_column("Tools", style="green", justify="center")
         table.add_column("Homepage", style="blue")
         table.add_column("Qualified Name", style="dim")
 
@@ -142,24 +129,24 @@ class MCPHubManager:
 
         self.console.print(table)
 
-    @handle_api_key_error
     async def install_server(self):
         """Handles the server installation workflow."""
-        server_name = await self.prompt_session.prompt_async("Enter the name of the server to install: ")
+        try:
+            server_name = await self.prompt_session.prompt_async("Enter the name of the server to install: ", is_password=False)
+            if not server_name:
+                return
 
-        # Check if server is already installed
-        installed_servers = self.config_manager.get_installed_servers(self.config_name)
-        if any(s.get("qualifiedName") == server_name for s in installed_servers):
-            self.console.print(f"[yellow]Server '{server_name}' is already installed.[/yellow]")
-            return
+            # Check if server is already installed
+            installed_servers = self.config_manager.get_installed_servers(self.config_name)
+            if any(s.get("qualifiedName") == server_name for s in installed_servers):
+                self.console.print(f"[yellow]Server '{server_name}' is already installed.[/yellow]")
+                return
 
-        with self.console.status(f"Getting details for {server_name}..."):
-            server_details = await self.smithery_client.get_server(server_name)
+            with self.console.status(f"Getting details for {server_name}..."):
+                server_details = await self.smithery_client.get_server(server_name)
 
-        if not server_details: return
-
-        security_info = server_details.get("security", {})
-        scan_passed = security_info.get("scanPassed", False)
+            security_info = server_details.get("security", {})
+            scan_passed = security_info.get("scanPassed", False)
         scan_text = "[bold green]Yes[/bold green]" if scan_passed else "[bold red]No[/bold red]"
 
         self.console.print(Panel(f"[bold]Name:[/bold] {server_details.get('displayName')}\n"
@@ -192,6 +179,24 @@ class MCPHubManager:
         # Reload servers
         await self.client.reload_servers()
 
+        except ValueError as e:
+            if "API key is not set" in str(e):
+                self.console.print("[bold yellow]A Smithery API key is required to install servers.[/bold yellow]")
+                await self.configure_api_key()
+                if self.smithery_client.api_key:
+                    self.console.print("[green]API Key set. Please try installing the server again.[/green]")
+                else:
+                    self.console.print("[yellow]Installation cancelled because API key was not provided.[/yellow]")
+            else:
+                self.console.print(f"[red]An unexpected value error occurred: {e}[/red]")
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                self.console.print(f"[red]Server '{server_name}' not found in the registry.[/red]")
+            else:
+                self.console.print(f"[red]Error fetching server details: {e}[/red]")
+        except Exception as e:
+            self.console.print(f"[red]An unexpected error occurred during installation: {e}[/red]")
+
     async def uninstall_server(self):
         """Handles the server uninstallation workflow."""
         try:
@@ -211,7 +216,7 @@ class MCPHubManager:
 
             self.console.print(table)
 
-            choice = await self.prompt_session.prompt_async("Enter the ID of the server to uninstall (or press Enter to cancel): ")
+            choice = await self.prompt_session.prompt_async("Enter the ID of the server to uninstall (or press Enter to cancel): ", is_password=False)
             if not choice:
                 return
 
@@ -254,7 +259,7 @@ class MCPHubManager:
         self.console.print(table)
 
         try:
-            choice = await self.prompt_session.prompt_async("Enter the ID of the server to view (or press Enter to return): ")
+            choice = await self.prompt_session.prompt_async("Enter the ID of the server to view (or press Enter to return): ", is_password=False)
             if not choice:
                 return
 
@@ -283,18 +288,15 @@ class MCPHubManager:
         except (KeyboardInterrupt, EOFError):
             self.console.print("\n")
 
-    @handle_api_key_error
     async def inspect_server_from_registry(self):
         """Fetches and displays details for any server from the registry."""
         try:
-            server_name = await self.prompt_session.prompt_async("Enter the qualified name of the server to inspect: ")
+            server_name = await self.prompt_session.prompt_async("Enter the qualified name of the server to inspect: ", is_password=False)
             if not server_name:
                 return
 
             with self.console.status(f"Fetching details for {server_name}..."):
                 server = await self.smithery_client.get_server(server_name)
-
-            if not server: return
 
             security_info = server.get("security", {})
             scan_passed = security_info.get("scanPassed", False)
@@ -316,6 +318,16 @@ class MCPHubManager:
 
             self.console.print(Panel(Text.from_markup(summary_text), title="[bold cyan]Registry Server Details[/bold cyan]", border_style="cyan", expand=False))
 
+        except ValueError as e:
+            if "API key is not set" in str(e):
+                self.console.print("[bold yellow]A Smithery API key is required to inspect servers.[/bold yellow]")
+                await self.configure_api_key()
+                if self.smithery_client.api_key:
+                    self.console.print("[green]API Key set. Please try inspecting the server again.[/green]")
+                else:
+                    self.console.print("[yellow]Action cancelled because API key was not provided.[/yellow]")
+            else:
+                self.console.print(f"[red]An unexpected value error occurred: {e}[/red]")
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
                 self.console.print(f"[red]Server '{server_name}' not found in the registry.[/red]")
@@ -343,7 +355,7 @@ class MCPHubManager:
         self.console.print(table)
 
         try:
-            choice = await self.prompt_session.prompt_async("Enter the ID of the server to toggle (or press Enter to cancel): ")
+            choice = await self.prompt_session.prompt_async("Enter the ID of the server to toggle (or press Enter to cancel): ", is_password=False)
             if not choice:
                 return
 
@@ -391,7 +403,7 @@ class MCPHubManager:
         self.console.print(table)
 
         try:
-            choice = await self.prompt_session.prompt_async("Enter the ID of the server to re-configure (or press Enter to cancel): ")
+            choice = await self.prompt_session.prompt_async("Enter the ID of the server to re-configure (or press Enter to cancel): ", is_password=False)
             if not choice:
                 return
 
