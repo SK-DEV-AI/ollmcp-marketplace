@@ -509,8 +509,8 @@ class MCPClient:
                     self.hil_manager.toggle()
                     continue
 
-                if query.lower() in ['mcphub', 'hub']:
-                    smithery_client = SmitheryClient(self.config_manager)
+                if query.lower() in ['mcphub', 'hub', 'mcp-hub']:
+                    smithery_client = SmitheryClient(self.config_manager, self.current_config_name)
                     mcphub_manager = MCPHubManager(self.console, smithery_client, self.config_manager, self, self.current_config_name)
                     await mcphub_manager.run()
                     # Redisplay the main menu and status after exiting the hub
