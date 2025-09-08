@@ -63,16 +63,48 @@ class ServerConnector:
             installed_servers = self.config_manager.get_installed_servers()
             for server in installed_servers:
                 self.console.print(f"[cyan]Found installed server: {server.get('qualifiedName')}[/cyan]")
-                if not server.get("deploymentUrl"):
-                    self.console.print(f"[yellow]Warning: Installed server '{server.get('qualifiedName')}' has no deploymentUrl. Skipping.[/yellow]")
+
+                connections = server.get("connections")
+                if not connections:
+                    self.console.print(f"[yellow]Warning: Installed server '{server.get('qualifiedName')}' has no connection information. Skipping.[/yellow]")
                     continue
-                # Assuming streamable_http for now
-                all_servers.append({
+
+                # For now, just use the first available connection
+                connection_info = connections[0]
+                conn_type = connection_info.get("type")
+
+                # The server object passed to _connect_to_server needs a 'name' and 'type'.
+                # The rest of the info can be in a 'config' sub-dictionary or at the top level.
+                # Let's match the structure that _connect_to_server expects.
+                server_obj = {
                     "name": server.get("qualifiedName"),
-                    "type": "streamable_http",
-                    "url": server.get("deploymentUrl"),
-                    "config": server.get("config")
-                })
+                    "config": server.get("config", {}) # User-provided config
+                }
+
+                if conn_type == "shttp":
+                    server_obj["type"] = "streamable_http"
+                    server_obj["url"] = connection_info.get("url")
+                elif conn_type == "sse":
+                    server_obj["type"] = "sse"
+                    server_obj["url"] = connection_info.get("url")
+                elif conn_type == "stdio":
+                    # For stdio, the connection info is the command, args, etc.
+                    # The _create_config_params expects these in the 'config' dict.
+                    server_obj["type"] = "config" # This will route to _create_config_params
+                    server_obj["config"].update({
+                        "command": connection_info.get("command"),
+                        "args": connection_info.get("args", []),
+                        "env": connection_info.get("env")
+                    })
+                else:
+                    self.console.print(f"[yellow]Warning: Unsupported connection type '{conn_type}' for server '{server.get('qualifiedName')}'. Skipping.[/yellow]")
+                    continue
+
+                if not server_obj.get("url") and conn_type != "stdio":
+                    self.console.print(f"[yellow]Warning: Installed server '{server.get('qualifiedName')}' is missing a URL for its connection. Skipping.[/yellow]")
+                    continue
+
+                all_servers.append(server_obj)
 
         # Process server paths
         if server_paths:
@@ -298,7 +330,11 @@ class ServerConnector:
         Returns:
             StdioServerParameters or None if invalid
         """
-        server_config = server["config"]
+        server_config = server.get("config")
+        if not server_config:
+            self.console.print(f"[yellow]Warning: Server '{server['name']}' has a config-type connection but is missing the 'config' object. Skipping.[/yellow]")
+            return None
+
         command = server_config.get("command")
 
         # Validate the command exists in PATH
