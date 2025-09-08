@@ -48,3 +48,7 @@ class SmitheryClient:
             data = response.json()
             self.server_cache[server_id] = data
             return data
+
+    def clear_cache(self):
+        """Clears the in-memory server cache."""
+        self.server_cache = {}

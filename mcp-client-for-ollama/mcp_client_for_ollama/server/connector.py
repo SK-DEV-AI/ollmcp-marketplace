@@ -62,6 +62,10 @@ class ServerConnector:
         if self.config_manager:
             installed_servers = self.config_manager.get_installed_servers()
             for server in installed_servers:
+                if not server.get("enabled", True):
+                    self.console.print(f"[yellow]Skipping disabled server: {server.get('qualifiedName')}[/yellow]")
+                    continue
+
                 self.console.print(f"[cyan]Found installed server: {server.get('qualifiedName')}[/cyan]")
 
                 connections = server.get("connections")
