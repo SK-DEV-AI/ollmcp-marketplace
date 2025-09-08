@@ -18,6 +18,7 @@ from mcp.client.streamable_http import streamablehttp_client
 from .discovery import process_server_paths, process_server_urls, parse_server_configs, auto_discover_servers
 from ..utils.constants import MCP_PROTOCOL_VERSION
 from ..utils.connection import check_url_connectivity
+from ..config.manager import ConfigManager
 
 class ServerConnector:
     """Manages connections to one or more MCP servers.
@@ -27,15 +28,17 @@ class ServerConnector:
     tools provided by those servers.
     """
 
-    def __init__(self, exit_stack: AsyncExitStack, console: Optional[Console] = None):
+    def __init__(self, exit_stack: AsyncExitStack, console: Optional[Console] = None, config_manager: Optional[ConfigManager] = None):
         """Initialize the ServerConnector.
 
         Args:
             exit_stack: AsyncExitStack to manage server connections
             console: Rich console for output (optional)
+            config_manager: ConfigManager to access installed servers
         """
         self.exit_stack = exit_stack
         self.console = console or Console()
+        self.config_manager = config_manager
         self.sessions = {}  # Dict to store multiple sessions
         self.available_tools = []  # List to store all available tools
         self.enabled_tools = {}  # Dict to store tool enabled status
@@ -54,6 +57,22 @@ class ServerConnector:
             Tuple of (sessions, available_tools, enabled_tools)
         """
         all_servers = []
+
+        # Load installed servers from config
+        if self.config_manager:
+            installed_servers = self.config_manager.get_installed_servers()
+            for server in installed_servers:
+                self.console.print(f"[cyan]Found installed server: {server.get('qualifiedName')}[/cyan]")
+                if not server.get("deploymentUrl"):
+                    self.console.print(f"[yellow]Warning: Installed server '{server.get('qualifiedName')}' has no deploymentUrl. Skipping.[/yellow]")
+                    continue
+                # Assuming streamable_http for now
+                all_servers.append({
+                    "name": server.get("qualifiedName"),
+                    "type": "streamable_http",
+                    "url": server.get("deploymentUrl"),
+                    "config": server.get("config")
+                })
 
         # Process server paths
         if server_paths:
