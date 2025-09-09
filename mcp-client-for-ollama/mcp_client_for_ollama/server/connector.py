@@ -490,7 +490,10 @@ class ServerConnector:
             headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
 
             # For Smithery servers, add API key authentication if available
-            if "@smithery.ai" in server_name and self.config_manager:
+            # Smithery servers are identified by the format @owner/server-name
+            is_smithery_server = (server_name.startswith("@") and "/" in server_name)
+
+            if is_smithery_server and self.config_manager:
                 self.console.print(f"[cyan]DEBUG: Detected Smithery server: {server_name}[/cyan]")
 
                 # Try to get API key from configuration
