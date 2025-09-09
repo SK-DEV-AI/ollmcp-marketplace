@@ -489,35 +489,33 @@ class ServerConnector:
         if server_type in ["sse", "streamable_http"]:
             headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
 
-            # For Smithery servers, add API key authentication if available
-            # Smithery servers are identified by the format @owner/server-name
-            is_smithery_server = (server_name.startswith("@") and "/" in server_name)
+        # For Smithery servers, determine appropriate authentication
+        # Smithery servers are identified by the format @owner/server-name
+        is_smithery_server = (server_name.startswith("@") and "/" in server_name)
 
-            if is_smithery_server and self.config_manager:
-                self.console.print(f"[cyan]DEBUG: Detected Smithery server: {server_name}[/cyan]")
+        if is_smithery_server and self.config_manager:
+            self.console.print(f"[cyan]Detected Smithery server: {server_name}[/cyan]")
+            self.console.print(f"[red]⚠️  SMITHERY REQUIRES OAUTH FLOW - Current implementation uses registry API tokens[/red]")
+            self.console.print(f"[red]⚠️  Server '{server_name}' likely needs OAuth authentication, not registry API keys[/red]")
 
-                # Try to get API key from configuration
-                api_key = None
-                if self.config_manager:
-                    # Load API key from config manager
-                    try:
-                        config_data = self.config_manager.load_configuration()
-                        self.console.print(f"[cyan]DEBUG: Config data loaded, keys: {list(config_data.keys() if config_data else [])}[/cyan]")
-                        api_key = config_data.get("smithery_api_key")
-                        self.console.print(f"[cyan]DEBUG: Found API key: {'Yes' if api_key else 'No'}[/cyan]")
-                    except Exception as e:
-                        self.console.print(f"[yellow]DEBUG: Error loading config: {e}[/yellow]")
+            # Try to get API key from configuration (for registry API only)
+            api_key = None
+            if self.config_manager:
+                try:
+                    config_data = self.config_manager.load_configuration()
+                    api_key = config_data.get("smithery_api_key")
+                except Exception as e:
+                    pass
 
-                if api_key:
-                    # Add Bearer token header for Smithery server authentication
-                    headers["Authorization"] = f"Bearer {api_key}"
-                    self.console.print(f"[green]Added API key authentication for Smithery server: {server_name}[/green]")
-                else:
-                    self.console.print(f"[yellow]Warning: No API key found for Smithery server {server_name}[/yellow]")
+            if api_key:
+                # This is the WRONG approach - we need to remove this once OAuth is properly implemented
+                self.console.print(f"[yellow]🔄 Temporarily using registry API key for server auth - THIS WILL FAIL![/yellow]")
+                headers["Authorization"] = f"Bearer {api_key}"
+                self.console.print(f"[red]❌ Added registry API key to server auth headers - EXPECTING 401 FAILURE[/red]")
             else:
-                self.console.print(f"[cyan]DEBUG: Server is not a Smithery server or no config_manager[/cyan]")
-
-        self.console.print(f"[cyan]DEBUG: Final headers: {headers}[/cyan]")
+                self.console.print(f"[red]❌ No API key found for Smithery server {server_name}[/red]")
+        else:
+            self.console.print(f"[cyan]Non-Smithery server, using standard authentication flow[/cyan]")
         return headers
 
     async def disconnect_all_servers(self):
