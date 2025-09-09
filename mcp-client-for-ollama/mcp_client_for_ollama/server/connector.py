@@ -221,6 +221,7 @@ class ServerConnector:
                     return False
 
                 headers = self._get_headers_from_server(server)
+                self.console.print(f"[cyan]Connecting to {server_name} with headers: {list(headers.keys())}[/cyan]")
 
                 # Use the streamablehttp_client for Streamable HTTP connections
                 transport = await self.exit_stack.enter_async_context(
@@ -472,35 +473,48 @@ class ServerConnector:
         # Try to get headers directly from server dict
         headers = server.get("headers", {})
 
+        self.console.print(f"[cyan]DEBUG: Initial headers from server: {headers}[/cyan]")
+
         # If not there, try the config subdict
         if not headers and "config" in server:
             headers = server["config"].get("headers", {})
+            self.console.print(f"[cyan]DEBUG: Headers from config subdict: {headers}[/cyan]")
 
         # Always add MCP Protocol Version header for HTTP connections
         server_type = server.get("type", "script")
+        server_name = server["name"]
+
+        self.console.print(f"[cyan]DEBUG: Server type: {server_type}, Server name: {server_name}[/cyan]")
+
         if server_type in ["sse", "streamable_http"]:
             headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
 
             # For Smithery servers, add API key authentication if available
-            server_name = server["name"]
             if "@smithery.ai" in server_name and self.config_manager:
+                self.console.print(f"[cyan]DEBUG: Detected Smithery server: {server_name}[/cyan]")
+
                 # Try to get API key from configuration
                 api_key = None
                 if self.config_manager:
                     # Load API key from config manager
                     try:
                         config_data = self.config_manager.load_configuration()
+                        self.console.print(f"[cyan]DEBUG: Config data loaded, keys: {list(config_data.keys() if config_data else [])}[/cyan]")
                         api_key = config_data.get("smithery_api_key")
-                    except:
-                        pass
+                        self.console.print(f"[cyan]DEBUG: Found API key: {'Yes' if api_key else 'No'}[/cyan]")
+                    except Exception as e:
+                        self.console.print(f"[yellow]DEBUG: Error loading config: {e}[/yellow]")
 
                 if api_key:
                     # Add Bearer token header for Smithery server authentication
                     headers["Authorization"] = f"Bearer {api_key}"
-                    self.console.print(f"[cyan]Added API key authentication for Smithery server: {server_name}[/cyan]")
+                    self.console.print(f"[green]Added API key authentication for Smithery server: {server_name}[/green]")
                 else:
-                    self.console.print(f"[yellow]Warning: Smithery server {server_name} may require API key authentication[/yellow]")
+                    self.console.print(f"[yellow]Warning: No API key found for Smithery server {server_name}[/yellow]")
+            else:
+                self.console.print(f"[cyan]DEBUG: Server is not a Smithery server or no config_manager[/cyan]")
 
+        self.console.print(f"[cyan]DEBUG: Final headers: {headers}[/cyan]")
         return headers
 
     async def disconnect_all_servers(self):
