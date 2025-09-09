@@ -186,36 +186,84 @@ class MCPHubManager:
         """Fetch detailed information for servers."""
         tasks = [self.smithery_client.get_server(s["qualifiedName"]) for s in servers]
         detailed_servers = await asyncio.gather(*tasks, return_exceptions=True)
-        return [(i, server) for i, server in enumerate(detailed_servers) if not isinstance(server, Exception)]
+        # Filter out None and Exception objects, ensure we return valid server data
+        result = []
+        for i, server in enumerate(detailed_servers):
+            if isinstance(server, Exception):
+                continue
+            if server is None:
+                continue
+            if not isinstance(server, dict):
+                continue
+            if not server.get("qualifiedName"):
+                continue
+            result.append((i, server))
+        return result
 
     def _display_server_cards(self, servers_data):
-        """Display professional server information cards."""
+        """Display professional server information cards with robust error handling."""
+        # Safety check - ensure we have valid data
+        if not servers_data or not isinstance(servers_data, list):
+            self.console.print("[yellow]No valid server data to display.[/yellow]")
+            return
+
+        valid_servers_count = 0
+
         for index, server in servers_data:
-            if not server:
-                continue
+            try:
+                # Comprehensive validation
+                if not server or not isinstance(server, dict):
+                    continue
 
-            display_name = server.get("displayName", "Unknown Server")
-            q_name = server.get("qualifiedName")
-            description = server.get("description", "No description available.")
-            tool_count = len(server.get("tools", []))
-            homepage = server.get("homepage", "")
-            security_passed = server.get("security", {}).get("scanPassed", False)
+                display_name = server.get("displayName", server.get("qualifiedName", "Unknown Server"))
+                if not display_name:
+                    continue
 
-            # Security indicator
-            security_text = "[bold green]Secure[/bold green]" if security_passed else "[bold red]Unverified[/bold red]"
+                q_name = server.get("qualifiedName", "")
+                if not q_name:
+                    continue
 
-            card_content = f"""[bold]Description:[/bold] {description[:100]}{"..." if len(description) > 100 else ""}
+                description = server.get("description", "No description available.")
+                if not isinstance(description, str):
+                    description = "No description available."
+
+                tools = server.get("tools", [])
+                tool_count = len(tools) if isinstance(tools, list) else 0
+
+                homepage = server.get("homepage", "")
+
+                security_info = server.get("security", {})
+                security_passed = security_info.get("scanPassed", False) if isinstance(security_info, dict) else False
+
+                # Security indicator
+                security_text = "[bold green]Secure[/bold green]" if security_passed else "[bold red]Unverified[/bold red]"
+
+                card_content = f"""[bold]Description:[/bold] {description[:100]}{"..." if len(description) > 100 else ""}
 [bold]Tools:[/bold] {tool_count} | [bold]Security:[/bold] {security_text}
 [bold]Homepage:[/bold] [link={homepage}]{homepage}[/link]"""
 
-            server_panel = Panel(
-                Text.from_markup(card_content),
-                title=f"[bold cyan]({index + 1}) {display_name}[/bold cyan]\n[dim]{q_name}[/dim]",
-                border_style="blue",
-                padding=(1, 2),
-                expand=True
-            )
-            self.console.print(server_panel)
+                server_panel = Panel(
+                    Text.from_markup(card_content),
+                    title=f"[bold cyan]({index + 1}) {display_name}[/bold cyan]\n[dim]{q_name}[/dim]",
+                    border_style="blue",
+                    padding=(1, 2),
+                    expand=True
+                )
+                self.console.print(server_panel)
+                valid_servers_count += 1
+
+            except (AttributeError, TypeError, KeyError) as e:
+                # Skip any malformed server data silently
+                continue
+            except Exception as e:
+                # For debugging - but don't break the UI
+                self.console.print(f"[dim gray]Skipping malformed server {index + 1}: {e}[/dim gray]")
+                continue
+
+        if valid_servers_count == 0:
+            self.console.print("[yellow]No valid servers found to display.[/yellow]")
+        elif valid_servers_count < len(servers_data):
+            self.console.print(f"[dim]Displayed {valid_servers_count} of {len(servers_data)} servers (some had invalid data)[/dim]")
 
     async def _handle_server_installation(self, servers_data, action):
         """Handle server installation workflow."""
