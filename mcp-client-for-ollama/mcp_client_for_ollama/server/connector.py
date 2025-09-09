@@ -92,20 +92,14 @@ class ServerConnector:
                     server_obj["type"] = "sse"
                     server_obj["url"] = connection_info.get("url")
                 elif conn_type == "stdio":
-                    # A stdio server from the registry can be defined by a script path or a command.
-                    # We need to route it to the correct helper.
-                    if connection_info.get("path"):
+                    # This is a stdio server. The user should have been prompted to download it
+                    # and provide a local path, which is stored in the server object.
+                    local_path = server.get("local_script_path")
+                    if local_path:
                         server_obj["type"] = "script"
-                        server_obj["path"] = connection_info.get("path")
-                    elif connection_info.get("command"):
-                        server_obj["type"] = "config"
-                        server_obj["config"].update({
-                            "command": connection_info.get("command"),
-                            "args": connection_info.get("args", []),
-                            "env": connection_info.get("env")
-                        })
+                        server_obj["path"] = local_path
                     else:
-                        self.console.print(f"[yellow]Warning: stdio server '{server.get('qualifiedName')}' has no 'path' or 'command'. Skipping.[/yellow]")
+                        self.console.print(f"[yellow]Warning: stdio server '{server.get('qualifiedName')}' is configured but its local path is missing. Skipping.[/yellow]")
                         continue
                 else:
                     self.console.print(f"[yellow]Warning: Unsupported connection type '{conn_type}' for server '{server.get('qualifiedName')}'. Skipping.[/yellow]")

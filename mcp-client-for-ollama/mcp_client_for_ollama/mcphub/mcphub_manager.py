@@ -56,15 +56,15 @@ class MCPHubManager:
         """Prints the MCP-HUB menu."""
         menu_text = """
 [bold]MCP-HUB Menu[/bold]
-1. Search and Install Servers
+1. Search and Add Servers
 2. Uninstall a server
 3. View installed servers
-5. Enable/Disable a server
-6. Re-configure installed server
-7. Inspect server from registry
-8. Configure Smithery API Key
-9. Clear API Cache
-10. Back to main menu (q, quit)
+4. Enable/Disable a server
+5. Re-configure installed server
+6. Inspect server from registry
+7. Configure Smithery API Key
+8. Clear API Cache
+9. Back to main menu (q, quit)
 """
         self.console.print(Panel(Text.from_markup(menu_text), title="MCP-HUB", border_style="yellow"))
 
@@ -129,8 +129,8 @@ class MCPHubManager:
                         server_index = int(action) - 1
                         if 0 <= server_index < len(detailed_servers):
                             selected_server = detailed_servers[server_index]
-                            # Call install_server, passing the details to avoid a second API call
-                            await self.install_server(server_details=selected_server)
+                            # Call add_server, passing the details to avoid a second API call
+                            await self.add_server(server_details=selected_server)
                         else:
                             self.console.print("[red]Invalid ID.[/red]")
                     except (ValueError, IndexError):
@@ -149,7 +149,7 @@ class MCPHubManager:
         except Exception as e:
             self.console.print(f"[red]An unexpected error occurred during search: {e}[/red]")
 
-    async def install_server(self, server_details: dict = None):
+    async def add_server(self, server_details: dict = None):
         """Handles the server installation workflow."""
         server_name = ""
         try:
@@ -177,6 +177,28 @@ class MCPHubManager:
             self.console.print(Panel(f"[bold]Name:[/bold] {server_details.get('displayName')}\n"
                                    f"[bold]Description:[/bold] {server_details.get('description')}\n"
                                    f"[bold]Security Scan Passed:[/bold] {scan_text}"))
+
+            # Check connection type and handle stdio servers differently
+            connection_info = (server_details.get("connections") or [{}])[0]
+            conn_type = connection_info.get("type")
+
+            if conn_type == "stdio":
+                self.console.print(Panel(
+                    "[bold yellow]This is a `stdio` server that must be run locally.[/bold yellow]\n\n"
+                    "1. Please clone the server's repository to your local machine.\n"
+                    f"   Git URL: [blue underline]{server_details.get('homepage')}[/blue underline]\n\n"
+                    "2. Enter the absolute path to the server's main executable script below.",
+                    title="Manual Setup Required"
+                ))
+                local_path = await self.prompt_session.prompt_async("Enter local script path: ", is_password=False)
+
+                import os
+                if not os.path.exists(local_path):
+                    self.console.print(f"[red]Error: Path not found: {local_path}[/red]")
+                    return
+
+                # Store the local path for the connector to use
+                server_details["local_script_path"] = local_path
 
             config = await self._ask_for_server_config(server_details)
             if config is None:
