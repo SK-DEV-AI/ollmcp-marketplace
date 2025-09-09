@@ -227,7 +227,7 @@ class ServerConnector:
 
                 if is_smithery_server:
                     self.console.print(f"[cyan]🔄 Setting up OAuth provider for Smithery server[/cyan]")
-                    auth_provider = OAuthProviderFactory.create_provider(url, "smithery")
+                    auth_provider = AuthProviderFactory.create_provider(url, "smithery")
                     if auth_provider:
                         self.console.print(f"[green]✅ OAuth provider created for {server_name}[/green]")
                     else:
@@ -523,7 +523,7 @@ class ServerConnector:
             self.console.print(f"[green]🔄 Attempting OAuth authentication for Smithery server...[/green]")
 
             # Create OAuth provider for this Smithery server
-            auth_provider = OAuthProviderFactory.create_provider(server_url, "smithery")
+            auth_provider = AuthProviderFactory.create_provider(server_url, "smithery")
 
             if auth_provider:
                 # Check if we have existing tokens
