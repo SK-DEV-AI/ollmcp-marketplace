@@ -44,13 +44,13 @@ class ServerConnector:
         self.enabled_tools = {}  # Dict to store tool enabled status
         self.session_ids = {}  # Dict to store session IDs for HTTP connections
 
-    async def connect_to_servers(self, server_paths=None, server_urls=None, config_path=None, auto_discovery=False) -> Tuple[dict, list, dict]:
+    async def connect_to_servers(self, server_paths=None, server_urls=None, config_paths=None, auto_discovery=False) -> Tuple[dict, list, dict]:
         """Connect to one or more MCP servers
 
         Args:
             server_paths: List of paths to server scripts (.py or .js)
             server_urls: List of URLs for SSE or Streamable HTTP servers
-            config_path: Path to JSON config file with server configurations
+            config_paths: List of paths to JSON config files with server configurations
             auto_discovery: Whether to automatically discover servers
 
         Returns:
@@ -125,15 +125,16 @@ class ServerConnector:
                 self.console.print(f"[cyan]Found server URL: {server['url']} (type: {server['type']})[/cyan]")
             all_servers.extend(url_servers)
 
-        # Process config file
-        if config_path:
-            try:
-                config_servers = parse_server_configs(config_path)
-                for server in config_servers:
-                    self.console.print(f"[cyan]Found server in config: {server['name']}[/cyan]")
-                all_servers.extend(config_servers)
-            except Exception as e:
-                self.console.print(f"[red]Error loading server configurations: {str(e)}[/red]")
+        # Process config files
+        if config_paths:
+            for config_path in config_paths:
+                try:
+                    config_servers = parse_server_configs(config_path)
+                    for server in config_servers:
+                        self.console.print(f"[cyan]Found server in config ({os.path.basename(config_path)}): {server['name']}[/cyan]")
+                    all_servers.extend(config_servers)
+                except Exception as e:
+                    self.console.print(f"[red]Error loading server configuration from {config_path}: {str(e)}[/red]")
 
         # Auto-discover servers if enabled
         if auto_discovery:

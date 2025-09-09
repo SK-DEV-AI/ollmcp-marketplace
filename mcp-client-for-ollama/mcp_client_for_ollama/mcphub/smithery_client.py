@@ -1,34 +1,22 @@
 import httpx
-from ..config.manager import ConfigManager
 
 class SmitheryClient:
-    """A client for the Smithery Registry API."""
+    """A stateless client for the Smithery Registry API."""
 
-    def __init__(self, config_manager: ConfigManager):
-        self.config_manager = config_manager
-        self.api_key = None  # Will be loaded on demand
+    def __init__(self):
         self.base_url = "https://registry.smithery.ai"
         self.server_cache = {}
 
-    def get_api_key(self, config_name: str) -> str | None:
-        """Retrieves the Smithery API key from a specific configuration."""
-        config_data = self.config_manager.load_configuration(config_name)
-        self.api_key = config_data.get("smithery_api_key")
-        return self.api_key
+    def clear_cache(self):
+        """Clears the in-memory server cache."""
+        self.server_cache = {}
 
-    def set_api_key(self, api_key: str, config_name: str):
-        """Saves the Smithery API key to a specific configuration."""
-        config_data = self.config_manager.load_configuration(config_name)
-        config_data["smithery_api_key"] = api_key
-        self.config_manager.save_configuration(config_data, config_name)
-        self.api_key = api_key
-
-    async def search_servers(self, query: str = "", page: int = 1, page_size: int = 10):
+    async def search_servers(self, query: str, api_key: str, page: int = 1, page_size: int = 10) -> dict:
         """Searches for servers on the Smithery Registry."""
-        if not self.api_key:
-            raise ValueError("Smithery API key is not set.")
+        if not api_key:
+            raise ValueError("API key is required for search.")
 
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = {"Authorization": f"Bearer {api_key}"}
         params = {"q": query, "page": page, "pageSize": page_size}
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{self.base_url}/servers", headers=headers, params=params)
@@ -36,24 +24,19 @@ class SmitheryClient:
             data = response.json()
             return data or {}
 
-    async def get_server(self, server_id: str):
+    async def get_server(self, server_id: str, api_key: str) -> dict:
         """Gets the details of a single server, using a cache."""
         if server_id in self.server_cache:
             return self.server_cache[server_id]
 
-        if not self.api_key:
-            raise ValueError("Smithery API key is not set.")
+        if not api_key:
+            raise ValueError("API key is required to get server details.")
 
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = {"Authorization": f"Bearer {api_key}"}
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{self.base_url}/servers/{server_id}", headers=headers)
             response.raise_for_status()
             data = response.json()
-            # Cache the data only if it's not None, but always return a dict
             if data:
                 self.server_cache[server_id] = data
             return data or {}
-
-    def clear_cache(self):
-        """Clears the in-memory server cache."""
-        self.server_cache = {}
