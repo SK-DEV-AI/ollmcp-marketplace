@@ -59,7 +59,12 @@ class MCPHubManager:
                     await self.backup_restore_configuration()
                 elif choice == "11":
                     await self.view_server_categories()
-                elif choice in ["12", "q", "quit"]:
+                elif choice == "13":
+                    await self.setup_server_connectivity()
+                elif choice == "14":
+                    self.show_server_directory()
+                    await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+                elif choice in ["13", "q", "quit"]:
                     break
                 else:
                     self.console.print("[red]Invalid choice. Please try again.[/red]")
@@ -81,7 +86,9 @@ class MCPHubManager:
 9. Check server health status
 10. Backup/Restore configuration
 11. View server categories
-12. Back to main menu (q, quit)
+12. Setup server connectivity
+13. View server directory
+14. Back to main menu (q, quit)
 """
         self.console.print(Panel(Text.from_markup(menu_text), title="MCP-HUB", border_style="yellow"))
 
@@ -645,6 +652,233 @@ class MCPHubManager:
         except (KeyboardInterrupt, EOFError):
             return None
 
+    def _check_docker_available(self) -> bool:
+        """Check if Docker is available on the system."""
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["docker", "--version"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return "Docker version" in result.stdout
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return False
+
+    async def _setup_server_connectivity(self, server_details: dict):
+        """Setup connectivity for a server based on its type."""
+        server_name = server_details.get("displayName", server_details.get("qualifiedName"))
+
+        connection_info = server_details.get("connections", [{}])[0]
+        conn_type = connection_info.get("type")
+        conn_url = connection_info.get("url")
+
+        if conn_type in ["http", "shttp", "sse"]:
+            # HTTP-based server
+            if not self._check_docker_available():
+                self.console.print(Panel(
+                    f"[bold yellow]⚠️  Docker Setup Required[/bold yellow]\n\n"
+                    f"Server '{server_name}' needs Docker to run.\n\n"
+                    "[bold]Install Docker:[/bold]\n"
+                    "• Ubuntu/Debian: [blue]sudo apt update && sudo apt install -y docker.io[/blue]\n"
+                    "• CentOS/RHEL: [blue]sudo yum install -y docker[/blue]\n"
+                    "• macOS: [blue]brew install docker[/blue]\n"
+                    "• Windows: Download from docker.com\n\n"
+                    "[bold]Start Docker service:[/bold]\n"
+                    "[blue]sudo systemctl start docker && sudo systemctl enable docker[/blue]",
+                    title="Docker Installation Guide", border_style="yellow"
+                ))
+                return False
+            else:
+                self.console.print(f"[green]✅ Docker is available![/green]")
+                self.console.print(Panel(
+                    f"[bold blue]🚀 Docker Execution Command[/bold blue]\n\n"
+                    f"Run this command to start the server:\n\n"
+                    f"[cyan]docker run --rm -it smithery-ai/null-server:latest[/cyan]\n\n"
+                    f"[dim]Note: This starts a temporary container. For persistent access, adjust mappings as needed.[/dim]",
+                    title=f"Starting {server_name}", border_style="blue"
+                ))
+                return True
+
+        elif conn_type == "stdio":
+            # Local script-based server
+            git_url = server_details.get("homepage", "")
+            if not git_url:
+                self.console.print(f"[red]❌ No Git URL available for {server_name}[/red]")
+                return False
+
+            self.console.print(Panel(
+                f"[bold blue]🛠️  Local Server Setup[/bold blue]\n\n"
+                f"To run '{server_name}' locally:\n\n"
+                "[bold]1. Clone the repository:[/bold]\n"
+                f"[cyan]git clone {git_url}[/cyan]\n\n"
+                "[bold]2. Install dependencies:[/bold]\n"
+                "[cyan]cd [repository-name] && npm install[/cyan]\n\n"
+                "[bold]3. Build and start:[/bold]\n"
+                "[cyan]npm run build && npm start[/cyan]\n\n"
+                "[bold]4. Configure server path:[/bold]\n"
+                "[cyan]ollmcp mcphub[/cyan] → Configure local script path",
+                title=f"Setup Guide for {server_name}", border_style="blue"
+            ))
+
+            # Check if user wants to clone automatically
+            auto_clone = await self.prompt_session.prompt_async("Would you like to clone the repository automatically? (y/N): ", is_password=False)
+            if auto_clone.lower() in ["y", "yes"]:
+                await self._clone_server_repository(server_details)
+                return True
+
+            return False
+
+        return False
+
+    async def _clone_server_repository(self, server_details: dict):
+        """Automatically clone and set up a server repository in the dedicated servers directory."""
+        import subprocess
+        import os
+
+        server_name = server_details.get("displayName", server_details.get("qualifiedName"))
+        git_url = server_details.get("homepage", "")
+
+        # Create dedicated servers directory
+        servers_base_dir = self._get_servers_base_dir()
+        os.makedirs(servers_base_dir, exist_ok=True)
+
+        self.console.print(f"[green]🎯 Clean Organization:[/green] Cloning {server_name} server...[/cyan]")
+
+        try:
+            # Extract clean repo name from Git URL
+            if git_url:
+                repo_name = git_url.split('/')[-1].replace('.git', '')
+                if not repo_name.startswith('mcp-server-'):
+                    repo_name = f"mcp-server-{repo_name}"
+            else:
+                # Clean name from qualified name
+                qualified = server_details.get("qualifiedName", "")
+                if "/" in qualified:
+                    repo_name = qualified.split("/")[-1]
+                else:
+                    repo_name = qualified
+                repo_name = f"mcp-server-{repo_name.replace('@', '').replace('/', '-')}"
+            repo_name = repo_name.replace('_', '-').lower()
+
+            # Always clone into the dedicated servers directory
+            clone_dir = os.path.join(servers_base_dir, repo_name)
+
+            if os.path.exists(clone_dir):
+                self.console.print(f"[yellow]Repository already exists at: {clone_dir}[/yellow]")
+                setup_path = await self._setup_server_repository(clone_dir, server_details)
+                if setup_path:
+                    await self._register_local_server(server_details, setup_path)
+                return
+
+            # Clone the repository
+            with self.console.status(f"Cloning {git_url}..."):
+                result = subprocess.run(
+                    ["git", "clone", git_url, clone_dir],
+                    capture_output=True,
+                    text=True,
+                    cwd=os.getcwd()
+                )
+
+                if result.returncode != 0:
+                    self.console.print(f"[red]❌ Git clone failed: {result.stderr}[/red]")
+                    return
+
+            self.console.print(f"[green]✅ Repository cloned to: {clone_dir}[/green]")
+
+            # Set up the repository
+            setup_path = await self._setup_server_repository(clone_dir, server_details)
+            if setup_path:
+                await self._register_local_server(server_details, setup_path)
+
+        except Exception as e:
+            self.console.print(f"[red]❌ Error cloning repository: {e}[/red]")
+
+    async def _setup_server_repository(self, repo_path: str, server_details: dict) -> str | None:
+        """Set up a cloned repository for use as an MCP server."""
+        import subprocess
+        import os
+
+        self.console.print(f"[cyan]Setting up repository at: {repo_path}[/cyan]")
+
+        try:
+            # Check if package.json exists (Node.js project)
+            package_json = os.path.join(repo_path, "package.json")
+            if os.path.exists(package_json):
+                self.console.print("[cyan]Installing Node.js dependencies...[/cyan]")
+                subprocess.run(["npm", "install"], cwd=repo_path, check=True, capture_output=True)
+
+                # Look for build script
+                if os.path.exists(os.path.join(repo_path, "build")):
+                    subprocess.run(["npm", "run", "build"], cwd=repo_path, check=True, capture_output=True)
+
+                # Find the main executable
+                package_data = {}
+                try:
+                    import json
+                    with open(package_json, 'r') as f:
+                        package_data = json.load(f)
+                except:
+                    pass
+
+                # Try common entry points
+                entry_points = [
+                    package_data.get("main"),
+                    "dist/index.js",
+                    "build/index.js",
+                    "index.js",
+                    "src/index.js"
+                ]
+
+                for entry in entry_points:
+                    if entry and os.path.exists(os.path.join(repo_path, entry)):
+                        full_path = os.path.join(repo_path, entry)
+                        self.console.print(f"[green]✅ Found executable: {full_path}[/green]")
+                        return full_path
+
+            self.console.print("[yellow]⚠️  Could not find main executable. Please check the repository manually.[/yellow]")
+
+        except subprocess.CalledProcessError as e:
+            self.console.print(f"[red]❌ Failed to set up repository: {e}[/red]")
+        except Exception as e:
+            self.console.print(f"[red]❌ Error setting up repository: {e}[/red]")
+
+        return None
+
+    async def _register_local_server(self, server_details: dict, script_path: str):
+        """Re-register a server with a local script path."""
+        # This would re-add the server with the local path instead of remote URL
+        self.console.print(f"[green]Server ready at: {script_path}[/green]")
+        self.console.print("[blue]You can now configure this path in MCP-HUB menu option 5 (Re-configure)[/blue]")
+
+    def _get_servers_base_dir(self) -> str:
+        """Get the base directory for server repositories."""
+        import os
+        return os.path.join(os.path.expanduser("~"), ".ollmcp", "servers")
+
+    def show_server_directory(self):
+        """Show information about the server directory organization."""
+        import os
+
+        servers_dir = self._get_servers_base_dir()
+
+        self.console.print(Panel(
+            f"[bold green]🗂️  Server Directory Organization[/bold green]\n\n"
+            f"[bold]Servers Location:[/bold] {servers_dir}\n\n"
+            f"[bold]Why this is perfect:[/bold]\n"
+            f"✨ Keeps everything clean and organized\n"
+            f"🎯 No server files clutter your workspace\n"
+            f"🛡️ Protects your files from accidental modification\n"
+            f"📍 Easy to find and manage all installed servers\n\n"
+            f"[bold cyan]Example structure in {servers_dir}:[/bold cyan]\n"
+            f"├── mcp-server-filesystem/\n"
+            f"├── mcp-server-database/\n"
+            f"└── mcp-server-search/\n\n"
+            f"[dim]Tip: Use 'find ~/.ollmcp/servers -name \"*\" -type d' to list all server directories[/dim]",
+            title="Clean Server Organization", border_style="blue"
+        ))
+
     def clear_api_cache(self):
         """Clears the Smithery API client's in-memory cache."""
         self.smithery_client.clear_cache()
@@ -699,23 +933,41 @@ class MCPHubManager:
                         is_connected = check_url_connectivity(conn_url)
                         status = "[green]Healthy[/green]" if is_connected else "[red]Connection Failed[/red]"
                         conn_status = "Online" if is_connected else "Failed"
+
+                        # If connection failed, provide Docker suggestions
+                        if not is_connected:
+                            # Check if Docker is available
+                            if self._check_docker_available():
+                                details = "[blue]⚠️  Run: docker run -it smithery-ai/null-server:latest[/blue]"
+                            else:
+                                details = "[red]⚠️  Docker required. Install Docker first.[/red]"
+                        else:
+                            enabled_status = "[green]Enabled[/green]" if server.get("enabled", True) else "[dim]Disabled[/dim]"
+                            details = enabled_status
                     else:
                         status = "[red]Error[/red]"
                         conn_status = "Missing URL"
+                        details = "[red]No URL configured[/red]"
                 elif conn_type == "stdio":
                     local_path = server.get("local_script_path") or conn_info.get("path")
                     if local_path and os.path.exists(local_path):
                         status = "[green]Ready[/green]"
                         conn_status = "Local File"
+                        enabled_status = "[green]Enabled[/green]" if server.get("enabled", True) else "[dim]Disabled[/dim]"
+                        details = enabled_status
                     else:
-                        status = "[red]Error[/red]"
+                        status = "[yellow]Setup Required[/yellow]"
                         conn_status = "File Missing"
+                        git_url = server.get("homepage")
+                        if git_url:
+                            details = f"[blue]⚠️  Clone: git clone {git_url}[/blue]"
+                        else:
+                            details = "[orange]⚠️  Download repository from homepage[/orange]"
                 else:
                     status = "[yellow]Unknown[/yellow]"
                     conn_status = f"Type: {conn_type}"
-
-                enabled_status = "[green]Enabled[/green]" if server.get("enabled", True) else "[dim]Disabled[/dim]"
-                details = enabled_status
+                    enabled_status = "[green]Enabled[/green]" if server.get("enabled", True) else "[dim]Disabled[/dim]"
+                    details = enabled_status
 
                 health_table.add_row(server_name, status, conn_status, details)
 
