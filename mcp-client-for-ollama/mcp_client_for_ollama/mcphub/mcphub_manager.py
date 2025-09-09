@@ -60,9 +60,15 @@ class MCPHubManager:
         self.console.print(Panel(Text.from_markup(menu_text), title="MCP-HUB", border_style="yellow"))
 
     async def _ensure_api_key(self):
+        """Checks for API key, re-loading from config first. Prompts user if not found."""
+        # Always reload from config to get the most up-to-date key
+        self.api_key = self.main_config_manager.load_configuration(self.config_name).get("smithery_api_key")
+
         if not self.api_key:
             self.console.print("[bold yellow]A Smithery API key is required.[/bold yellow]")
             await self.configure_api_key()
+
+        # After attempting to configure, check the instance variable which is set by configure_api_key
         return self.api_key is not None
 
     async def search_and_add_server(self):
@@ -121,10 +127,24 @@ class MCPHubManager:
             if not server_config["url"]: self.console.print(f"[red]Server '{server_name}' is missing a URL.[/red]"); return
         elif conn_type == "stdio":
             self.console.print(Panel(f"This is a `stdio` server and must be run locally.\nPlease clone it from: [blue underline]{server_details.get('homepage')}[/blue underline]", title="Manual Setup Required"))
-            local_path = await self.prompt_session.prompt_async("Enter the absolute local path to the main script: ", is_password=False)
-            if not os.path.exists(local_path): self.console.print(f"[red]Path not found: {local_path}[/red]"); return
-            server_config["command"] = "python" if local_path.endswith(".py") else "node"
-            server_config["args"] = [local_path]
+            while True:
+                prompt_text = "Enter the absolute local path to the main script (or 'q' to cancel): "
+                local_path = await self.prompt_session.prompt_async(prompt_text, is_password=False)
+                if local_path.lower() in ['q', 'quit']:
+                    self.console.print("[yellow]Add server operation cancelled.[/yellow]")
+                    return
+
+                if not os.path.exists(local_path):
+                    self.console.print(f"[red]Path not found: {local_path}. Please try again.[/red]")
+                    continue
+
+                if not os.path.isfile(local_path):
+                    self.console.print(f"[red]Path is not a file: {local_path}. Please provide a path to a file.[/red]")
+                    continue
+
+                server_config["command"] = "python" if local_path.endswith(".py") else "node"
+                server_config["args"] = [local_path]
+                break
         else:
             self.console.print(f"[red]Unsupported server type '{conn_type}'.[/red]"); return
 
