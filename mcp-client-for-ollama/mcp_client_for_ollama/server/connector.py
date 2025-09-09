@@ -16,6 +16,7 @@ from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
 
 from .discovery import process_server_paths, process_server_urls, parse_server_configs, auto_discover_servers
+from .auth import OAuthProviderFactory
 from ..utils.constants import MCP_PROTOCOL_VERSION
 from ..utils.connection import check_url_connectivity
 from ..config.manager import ConfigManager
@@ -220,13 +221,32 @@ class ServerConnector:
                     self.console.print(f"[red]Error: HTTP server {server_name} missing URL[/red]")
                     return False
 
+                # For Smithery servers, check if we need OAuth provider
+                is_smithery_server = (server_name.startswith("@") and "/" in server_name) or "smithery.ai" in url
+                auth_provider = None
+
+                if is_smithery_server:
+                    self.console.print(f"[cyan]🔄 Setting up OAuth provider for Smithery server[/cyan]")
+                    auth_provider = OAuthProviderFactory.create_provider(url, "smithery")
+                    if auth_provider:
+                        self.console.print(f"[green]✅ OAuth provider created for {server_name}[/green]")
+                    else:
+                        self.console.print(f"[yellow]⚠️ Failed to create OAuth provider for {server_name}[/yellow]")
+
+                # Get headers with OAuth authentication if needed
                 headers = self._get_headers_from_server(server)
-        
 
                 # Use the streamablehttp_client for Streamable HTTP connections
-                transport = await self.exit_stack.enter_async_context(
-                    streamablehttp_client(url, headers=headers)
-                )
+                # Pass auth_provider if available, otherwise use headers-only authentication
+                if auth_provider:
+                    transport = await self.exit_stack.enter_async_context(
+                        streamablehttp_client(url, headers=headers, auth_provider=auth_provider)
+                    )
+                else:
+                    transport = await self.exit_stack.enter_async_context(
+                        streamablehttp_client(url, headers=headers)
+                    )
+
                 read_stream, write_stream, session_info = transport
                 session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
 
@@ -489,33 +509,38 @@ class ServerConnector:
         if server_type in ["sse", "streamable_http"]:
             headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
 
-        # For Smithery servers, determine appropriate authentication
+        # For Smithery servers, use OAuth authentication
         # Smithery servers are identified by the format @owner/server-name
-        is_smithery_server = (server_name.startswith("@") and "/" in server_name)
+        is_smithery_server = (server_name.startswith("@") and "/" in server_name) or ("smithery.ai" in url if url else False)
 
-        if is_smithery_server and self.config_manager:
+        if is_smithery_server:
             self.console.print(f"[cyan]Detected Smithery server: {server_name}[/cyan]")
-            self.console.print(f"[red]⚠️  SMITHERY REQUIRES OAUTH FLOW - Current implementation uses registry API tokens[/red]")
-            self.console.print(f"[red]⚠️  Server '{server_name}' likely needs OAuth authentication, not registry API keys[/red]")
+            self.console.print(f"[green]🔄 Attempting OAuth authentication for Smithery server...[/green]")
 
-            # Try to get API key from configuration (for registry API only)
-            api_key = None
-            if self.config_manager:
-                try:
-                    config_data = self.config_manager.load_configuration()
-                    api_key = config_data.get("smithery_api_key")
-                except Exception as e:
-                    pass
+            # Create OAuth provider for this Smithery server
+            auth_provider = OAuthProviderFactory.create_provider(url, "smithery")
 
-            if api_key:
-                # This is the WRONG approach - we need to remove this once OAuth is properly implemented
-                self.console.print(f"[yellow]🔄 Temporarily using registry API key for server auth - THIS WILL FAIL![/yellow]")
-                headers["Authorization"] = f"Bearer {api_key}"
-                self.console.print(f"[red]❌ Added registry API key to server auth headers - EXPECTING 401 FAILURE[/red]")
+            if auth_provider:
+                # Check if we have existing tokens
+                existing_tokens = auth_provider.tokens()
+
+                if existing_tokens and existing_tokens.get("access_token"):
+                    # We have valid tokens, use them
+                    token_type = existing_tokens.get("token_type", "Bearer")
+                    access_token = existing_tokens.get("access_token")
+                    headers["Authorization"] = f"{token_type} {access_token}"
+                    self.console.print(f"[green]✅ Using cached OAuth token for {server_name}[/green]")
+                else:
+                    # We need to perform OAuth flow
+                    self.console.print(f"[yellow]⚠️ No cached OAuth token found for {server_name}[/yellow]")
+                    self.console.print(f"[blue]ℹ️ This server requires OAuth authentication[/blue]")
+                    self.console.print(f"[blue]ℹ️ The MCP client will prompt for OAuth completion[/blue]")
+                    # For now, we'll return the headers without auth and let the transport layer handle OAuth
+                    # The MCP library should trigger OAuth through the client->transport->auth provider chain
             else:
-                self.console.print(f"[red]❌ No API key found for Smithery server {server_name}[/red]")
+                self.console.print(f"[red]❌ Failed to create OAuth provider for {server_name}[/red]")
         else:
-            self.console.print(f"[cyan]Non-Smithery server, using standard authentication flow[/cyan]")
+            self.console.print(f"[cyan]Non-Smithery server: {server_name}, using standard authentication flow[/cyan]")
         return headers
 
     async def disconnect_all_servers(self):
