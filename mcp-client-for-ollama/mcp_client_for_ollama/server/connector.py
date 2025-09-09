@@ -461,7 +461,7 @@ class ServerConnector:
         return url
 
     def _get_headers_from_server(self, server: Dict[str, Any]) -> Dict[str, str]:
-        """Extract headers from server configuration.
+        """Extract headers from server configuration and add required authentication.
 
         Args:
             server: Server configuration dictionary
@@ -480,6 +480,26 @@ class ServerConnector:
         server_type = server.get("type", "script")
         if server_type in ["sse", "streamable_http"]:
             headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
+
+            # For Smithery servers, add API key authentication if available
+            server_name = server["name"]
+            if "@smithery.ai" in server_name and self.config_manager:
+                # Try to get API key from configuration
+                api_key = None
+                if self.config_manager:
+                    # Load API key from config manager
+                    try:
+                        config_data = self.config_manager.load_configuration()
+                        api_key = config_data.get("smithery_api_key")
+                    except:
+                        pass
+
+                if api_key:
+                    # Add Bearer token header for Smithery server authentication
+                    headers["Authorization"] = f"Bearer {api_key}"
+                    self.console.print(f"[cyan]Added API key authentication for Smithery server: {server_name}[/cyan]")
+                else:
+                    self.console.print(f"[yellow]Warning: Smithery server {server_name} may require API key authentication[/yellow]")
 
         return headers
 
