@@ -32,22 +32,20 @@ class MCPHubManager:
                 if choice == "1":
                     await self.search_servers()
                 elif choice == "2":
-                    await self.install_server()
-                elif choice == "3":
                     await self.uninstall_server()
-                elif choice == "4":
+                elif choice == "3":
                     await self.view_installed_servers()
-                elif choice == "5":
+                elif choice == "4":
                     await self.toggle_server_enabled_status()
-                elif choice == "6":
+                elif choice == "5":
                     await self.reconfigure_server()
-                elif choice == "7":
+                elif choice == "6":
                     await self.inspect_server_from_registry()
-                elif choice == "8":
+                elif choice == "7":
                     await self.configure_api_key()
-                elif choice == "9":
+                elif choice == "8":
                     self.clear_api_cache()
-                elif choice in ["10", "q", "quit"]:
+                elif choice in ["9", "q", "quit"]:
                     break
                 else:
                     self.console.print("[red]Invalid choice. Please try again.[/red]")
@@ -58,10 +56,9 @@ class MCPHubManager:
         """Prints the MCP-HUB menu."""
         menu_text = """
 [bold]MCP-HUB Menu[/bold]
-1. Search for servers
-2. Install a server
-3. Uninstall a server
-4. View installed servers
+1. Search and Install Servers
+2. Uninstall a server
+3. View installed servers
 5. Enable/Disable a server
 6. Re-configure installed server
 7. Inspect server from registry
@@ -72,41 +69,72 @@ class MCPHubManager:
         self.console.print(Panel(Text.from_markup(menu_text), title="MCP-HUB", border_style="yellow"))
 
     async def search_servers(self):
-        """Handles the server search workflow."""
+        """Handles the server search workflow and subsequent actions."""
         try:
-            self.console.print(Panel("You can use filters like 'owner:username' or 'is:verified'.", title="Advanced Search Tip", style="dim", border_style="blue"))
-            query = await self.prompt_session.prompt_async("Enter search query: ", is_password=False)
-            with self.console.status("Searching..."):
-                results = await self.smithery_client.search_servers(query)
+            while True:
+                self.console.print(Panel("You can use filters like 'owner:username' or 'is:verified'.", title="Advanced Search Tip", style="dim", border_style="blue"))
+                query = await self.prompt_session.prompt_async("Enter search query: ", is_password=False)
+                with self.console.status("Searching..."):
+                    results = await self.smithery_client.search_servers(query)
 
-            servers = results.get("servers", [])
-            if not servers:
-                self.console.print("[yellow]No servers found.[/yellow]")
-                return
-
-            table = Table(title="Smithery Registry Search Results", expand=True)
-            table.add_column("Display Name", style="cyan", no_wrap=True, width=30)
-            table.add_column("Description", style="white", ratio=1)
-            table.add_column("Tools", style="green", justify="center")
-            table.add_column("Homepage", style="blue")
-            table.add_column("Qualified Name", style="dim")
-
-            tasks = [self.smithery_client.get_server(s["qualifiedName"]) for s in servers]
-            detailed_servers = await asyncio.gather(*tasks, return_exceptions=True)
-
-            for server in detailed_servers:
-                if isinstance(server, Exception) or not server:
+                servers = results.get("servers", [])
+                if not servers:
+                    self.console.print("[yellow]No servers found.[/yellow]")
                     continue
 
-                display_name = server.get("displayName", server.get("qualifiedName"))
-                description = server.get("description", "No description available.")
-                tool_count = str(len(server.get("tools", [])))
-                homepage = server.get("homepage", "")
-                link = f"[link={homepage}]{homepage}[/link]" if homepage else "N/A"
+                self.console.print(Panel(f"Found {len(servers)} server(s).", border_style="green"))
 
-                table.add_row(display_name, description, tool_count, link, server.get('qualifiedName'))
+                tasks = [self.smithery_client.get_server(s["qualifiedName"]) for s in servers]
+                detailed_servers = await asyncio.gather(*tasks, return_exceptions=True)
 
-            self.console.print(table)
+                for i, server in enumerate(detailed_servers):
+                    if isinstance(server, Exception) or not server:
+                        continue
+
+                    display_name = server.get("displayName", server.get("qualifiedName"))
+                    description = server.get("description", "No description available.")
+                    tool_count = str(len(server.get("tools", [])))
+                    homepage = server.get("homepage", "N/A")
+                    link = f"[link={homepage}]{homepage}[/link]" if homepage != "N/A" else homepage
+                    q_name = server.get("qualifiedName")
+
+                    security_info = server.get("security") or {}
+                    scan_passed = security_info.get("scanPassed", False)
+                    scan_text = "[bold green]Yes[/bold green]" if scan_passed else "[bold red]No[/bold red]"
+
+                    card_content = f"[bold]Description:[/bold] {description}\n"
+                    card_content += f"[bold]Tools:[/bold] {tool_count} | [bold]Homepage:[/bold] {link} | [bold]Security Scan Passed:[/bold] {scan_text}"
+
+                    panel_title = f"({i + 1}) [bold cyan]{display_name}[/bold cyan]  [dim]({q_name})[/dim]"
+
+                    self.console.print(Panel(
+                        Text.from_markup(card_content),
+                        title=Text.from_markup(panel_title),
+                        border_style="blue",
+                        expand=True
+                    ))
+
+                # New unified workflow prompt
+                action = await self.prompt_session.prompt_async(
+                    "Enter an ID to install, (s)earch again, or (q)uit to menu: ",
+                    is_password=False
+                )
+
+                if action.lower() == 'q':
+                    break
+                elif action.lower() == 's':
+                    continue
+                else:
+                    try:
+                        server_index = int(action) - 1
+                        if 0 <= server_index < len(detailed_servers):
+                            selected_server = detailed_servers[server_index]
+                            # Call install_server, passing the details to avoid a second API call
+                            await self.install_server(server_details=selected_server)
+                        else:
+                            self.console.print("[red]Invalid ID.[/red]")
+                    except (ValueError, IndexError):
+                        self.console.print("[red]Invalid input. Please enter a valid ID, 's', or 'q'.[/red]")
 
         except ValueError as e:
             if "API key is not set" in str(e):
@@ -121,23 +149,28 @@ class MCPHubManager:
         except Exception as e:
             self.console.print(f"[red]An unexpected error occurred during search: {e}[/red]")
 
-    async def install_server(self):
+    async def install_server(self, server_details: dict = None):
         """Handles the server installation workflow."""
         server_name = ""
         try:
-            server_name = await self.prompt_session.prompt_async("Enter the name of the server to install: ", is_password=False)
-            if not server_name:
-                return
+            # If server details aren't passed, we're in the old workflow: prompt for name and fetch
+            if server_details is None:
+                server_name = await self.prompt_session.prompt_async("Enter the name of the server to install: ", is_password=False)
+                if not server_name:
+                    return
+
+                with self.console.status(f"Getting details for {server_name}..."):
+                    server_details = await self.smithery_client.get_server(server_name)
+
+            # Use the qualifiedName from the provided details
+            server_name = server_details.get("qualifiedName")
 
             installed_servers = self.config_manager.get_installed_servers(self.config_name)
             if any(s.get("qualifiedName") == server_name for s in installed_servers):
                 self.console.print(f"[yellow]Server '{server_name}' is already installed.[/yellow]")
                 return
 
-            with self.console.status(f"Getting details for {server_name}..."):
-                server_details = await self.smithery_client.get_server(server_name)
-
-            security_info = server_details.get("security", {})
+            security_info = server_details.get("security") or {}
             scan_passed = security_info.get("scanPassed", False)
             scan_text = "[bold green]Yes[/bold green]" if scan_passed else "[bold red]No[/bold red]"
 
@@ -285,7 +318,7 @@ class MCPHubManager:
             with self.console.status(f"Fetching details for {server_name}..."):
                 server = await self.smithery_client.get_server(server_name)
 
-            security_info = server.get("security", {})
+            security_info = server.get("security") or {}
             scan_passed = security_info.get("scanPassed", False)
             scan_text = "[bold green]Yes[/bold green]" if scan_passed else "[bold red]No[/bold red]"
 
