@@ -108,7 +108,12 @@ class MCPClient:
 
     async def select_model(self):
         """Let the user select an Ollama model from the available ones"""
-        await self.model_manager.select_model_interactive(clear_console_func=self.clear_console)
+        old_model = self.model_manager.get_current_model()
+        new_model = await self.model_manager.select_model_interactive(clear_console_func=self.clear_console)
+
+        # Auto-save if model changed
+        if new_model != old_model:
+            self.save_configuration(self.current_config_name)
 
         # After model selection, redisplay context
         self.display_available_tools()
@@ -600,6 +605,8 @@ class MCPClient:
         self.retain_context = not self.retain_context
         status = "enabled" if self.retain_context else "disabled"
         self.console.print(f"[green]Context retention {status}![/green]")
+        # Auto-save current settings
+        self.save_configuration(self.current_config_name)
         # Display current context stats
         self.display_context_stats()
 
@@ -667,6 +674,9 @@ class MCPClient:
         else:
             self.console.print("[cyan]🔇 Tool execution details will be hidden for a cleaner output.[/cyan]")
 
+        # Auto-save current settings
+        self.save_configuration(self.current_config_name)
+
     def toggle_show_metrics(self):
         """Toggle whether performance metrics are shown after each query"""
         self.show_metrics = not self.show_metrics
@@ -711,8 +721,16 @@ class MCPClient:
     def auto_load_default_config(self):
         """Automatically load the default configuration if it exists."""
         if self.config_manager.config_exists("default"):
-            # self.console.print("[cyan]Default configuration found, loading...[/cyan]")
+            self.console.print("[cyan]Loading default configuration...[/cyan]")
             self.default_configuration_status = self.load_configuration("default")
+
+            # Also update the model manager with the current model immediately after loading config
+            if self.default_configuration_status:
+                # Ensure the model manager shows the correct current model
+                config_data = self.config_manager.load_configuration("default")
+                if config_data and "model" in config_data:
+                    self.model_manager.set_model(config_data["model"])
+                    self.console.print(f"[green]Model set to: {config_data['model']}[/green]")
 
     def print_auto_load_default_config_status(self):
         """Print the status of the auto-load default configuration."""

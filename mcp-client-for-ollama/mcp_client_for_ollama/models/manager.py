@@ -189,6 +189,11 @@ class ModelManager:
             if selection in ['s', 'save']:
                 # Save the selected model as current model
                 self.model = selected_model
+
+                # Auto-save the configuration after model change
+                # We'll need access to the client to do this...
+                # For now, we rely on the caller to handle this
+
                 if clear_console_func:
                     clear_console_func()
                 return self.model

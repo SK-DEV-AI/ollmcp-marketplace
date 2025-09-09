@@ -87,10 +87,10 @@ class ServerConnector:
 
                 if conn_type in ["shttp", "http"]:
                     server_obj["type"] = "streamable_http"
-                    server_obj["url"] = connection_info.get("url")
+                    server_obj["url"] = connection_info.get("url") or connection_info.get("deploymentUrl")
                 elif conn_type == "sse":
                     server_obj["type"] = "sse"
-                    server_obj["url"] = connection_info.get("url")
+                    server_obj["url"] = connection_info.get("url") or connection_info.get("deploymentUrl")
                 elif conn_type == "stdio":
                     # This is a stdio server. The user should have been prompted to download it
                     # and provide a local path, which is stored in the server object.

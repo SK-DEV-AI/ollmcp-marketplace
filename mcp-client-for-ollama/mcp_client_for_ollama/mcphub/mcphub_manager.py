@@ -22,6 +22,14 @@ class MCPHubManager:
         self.config_name = config_name
         self.prompt_session = PromptSession()
 
+        # Initialize the API key from the current configuration
+        if self.smithery_client.get_api_key(self.config_name) is None:
+            # Try to load API key if it exists in config but wasn't loaded
+            config_data = self.config_manager.load_configuration(self.config_name)
+            api_key = config_data.get("smithery_api_key")
+            if api_key:
+                self.smithery_client.set_api_key(api_key, self.config_name)
+
     async def run(self):
         """Runs the main loop of the MCP-HUB."""
         self.console.print(Panel(Text("Welcome to the MCP-HUB!", justify="center"), border_style="green"))
