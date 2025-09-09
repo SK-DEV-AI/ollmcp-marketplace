@@ -33,7 +33,8 @@ class SmitheryClient:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{self.base_url}/servers", headers=headers, params=params)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            return data or {}
 
     async def get_server(self, server_id: str):
         """Gets the details of a single server, using a cache."""
@@ -48,8 +49,10 @@ class SmitheryClient:
             response = await client.get(f"{self.base_url}/servers/{server_id}", headers=headers)
             response.raise_for_status()
             data = response.json()
-            self.server_cache[server_id] = data
-            return data
+            # Cache the data only if it's not None, but always return a dict
+            if data:
+                self.server_cache[server_id] = data
+            return data or {}
 
     def clear_cache(self):
         """Clears the in-memory server cache."""

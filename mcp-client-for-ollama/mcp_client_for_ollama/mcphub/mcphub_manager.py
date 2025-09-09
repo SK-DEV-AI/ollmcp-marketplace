@@ -77,6 +77,10 @@ class MCPHubManager:
                 with self.console.status("Searching..."):
                     results = await self.smithery_client.search_servers(query)
 
+                if not results:
+                    self.console.print("[red]Received an empty or invalid response from the server.[/red]")
+                    continue
+
                 servers = results.get("servers", [])
                 if not servers:
                     self.console.print("[yellow]No servers found.[/yellow]")
