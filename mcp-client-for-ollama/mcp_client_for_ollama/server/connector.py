@@ -221,7 +221,7 @@ class ServerConnector:
                     return False
 
                 headers = self._get_headers_from_server(server)
-                self.console.print(f"[cyan]Connecting to {server_name} with headers: {list(headers.keys())}[/cyan]")
+        
 
                 # Use the streamablehttp_client for Streamable HTTP connections
                 transport = await self.exit_stack.enter_async_context(

@@ -257,6 +257,10 @@ class ConfigManager:
         if "installed_servers" in config_data and isinstance(config_data["installed_servers"], list):
             validated["installed_servers"] = config_data["installed_servers"]
 
+        # Preserve Smithery API key
+        if "smithery_api_key" in config_data:
+            validated["smithery_api_key"] = config_data["smithery_api_key"]
+
         return validated
 
     def get_installed_servers(self, config_name: Optional[str] = None) -> list:
