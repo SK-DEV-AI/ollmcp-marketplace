@@ -504,6 +504,11 @@ class ServerConnector:
         server_type = server.get("type", "script")
         server_name = server["name"]
 
+        # Get the server URL for Smithery detection
+        server_url = server.get("url")
+        if not server_url and "config" in server:
+            server_url = server["config"].get("url")
+
         self.console.print(f"[cyan]DEBUG: Server type: {server_type}, Server name: {server_name}[/cyan]")
 
         if server_type in ["sse", "streamable_http"]:
@@ -511,14 +516,14 @@ class ServerConnector:
 
         # For Smithery servers, use OAuth authentication
         # Smithery servers are identified by the format @owner/server-name
-        is_smithery_server = (server_name.startswith("@") and "/" in server_name) or ("smithery.ai" in url if url else False)
+        is_smithery_server = (server_name.startswith("@") and "/" in server_name) or ("smithery.ai" in server_url if server_url else False)
 
         if is_smithery_server:
             self.console.print(f"[cyan]Detected Smithery server: {server_name}[/cyan]")
             self.console.print(f"[green]🔄 Attempting OAuth authentication for Smithery server...[/green]")
 
             # Create OAuth provider for this Smithery server
-            auth_provider = OAuthProviderFactory.create_provider(url, "smithery")
+            auth_provider = OAuthProviderFactory.create_provider(server_url, "smithery")
 
             if auth_provider:
                 # Check if we have existing tokens
