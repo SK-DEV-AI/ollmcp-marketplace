@@ -1,18 +1,26 @@
+"""
+Professional MCP Server Management System
+==========================================
+
+Advanced command-line interface for MCP (Model Context Protocol) servers
+with enterprise-grade configuration management.
+"""
+
 import asyncio
 import functools
 import httpx
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
-from prompt_toolkit import PromptSession
 from rich.table import Table
+from prompt_toolkit import PromptSession
 
 from .smithery_client import SmitheryClient
 from ..config.manager import ConfigManager
 
 
 class MCPHubManager:
-    """Manages the MCP-HUB TUI."""
+    """Professional MCP Server Management with Enterprise Features."""
 
     def __init__(self, console: Console, smithery_client: SmitheryClient, config_manager: ConfigManager, client, config_name: str):
         self.console = console
@@ -22,129 +30,145 @@ class MCPHubManager:
         self.config_name = config_name
         self.prompt_session = PromptSession()
 
-        # Initialize the API key from the current configuration
+        # Initialize API key from configuration
+        self._initialize_api_key()
+
+    def _initialize_api_key(self):
+        """Initialize Smithery API key from current configuration."""
         if self.smithery_client.get_api_key(self.config_name) is None:
-            # Try to load API key if it exists in config but wasn't loaded
             config_data = self.config_manager.load_configuration(self.config_name)
             api_key = config_data.get("smithery_api_key")
             if api_key:
                 self.smithery_client.set_api_key(api_key, self.config_name)
 
     async def run(self):
-        """Runs the main loop of the MCP-HUB."""
-        self.console.print(Panel(Text("Welcome to the MCP-HUB!", justify="center"), border_style="green"))
-        while True:
-            self.print_menu()
-            try:
-                choice = await self.prompt_session.prompt_async("Enter your choice: ", is_password=False)
-                if choice == "1":
-                    await self.search_servers()
-                elif choice == "2":
-                    await self.uninstall_server()
-                elif choice == "3":
-                    await self.view_installed_servers()
-                elif choice == "4":
-                    await self.toggle_server_enabled_status()
-                elif choice == "5":
-                    await self.reconfigure_server()
-                elif choice == "6":
-                    await self.inspect_server_from_registry()
-                elif choice == "7":
-                    await self.configure_api_key()
-                elif choice == "8":
-                    self.clear_api_cache()
-                elif choice == "9":
-                    await self.check_server_health()
-                elif choice == "10":
-                    await self.backup_restore_configuration()
-                elif choice == "11":
-                    await self.view_server_categories()
-                elif choice == "13":
-                    await self.setup_server_connectivity()
-                elif choice == "14":
-                    self.show_server_directory()
-                    await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
-                elif choice in ["13", "q", "quit"]:
-                    break
-                else:
-                    self.console.print("[red]Invalid choice. Please try again.[/red]")
-            except (KeyboardInterrupt, EOFError):
-                break
+        """Main MCP-HUB interface loop."""
+        welcome_message = Panel(
+            Text("Welcome to MCP-HUB - Professional MCP Server Manager!", justify="center"),
+            border_style="green"
+        )
+        self.console.print(welcome_message)
 
-    def print_menu(self):
-        """Prints the MCP-HUB menu."""
-        menu_text = """
-[bold]MCP-HUB Menu[/bold]
-1. Search and Add Servers
-2. Uninstall a server
-3. View installed servers
-4. Enable/Disable a server
-5. Re-configure installed server
-6. Inspect server from registry
-7. Configure Smithery API Key
-8. Clear API Cache
-9. Check server health status
-10. Backup/Restore configuration
-11. View server categories
-12. Setup server connectivity
-13. View server directory
-14. Back to main menu (q, quit)
+        while True:
+            try:
+                self.display_menu()
+                choice = await self.prompt_session.prompt_async("Select option: ", is_password=False)
+
+                await self._handle_menu_choice(choice)
+                if choice in ["14", "q", "quit"]:
+                    break
+
+            except (KeyboardInterrupt, EOFError):
+                self.console.print("\n[yellow]Operation cancelled. Back to menu.[/yellow]")
+                continue
+            except Exception as e:
+                self.console.print(f"[red]Unexpected error: {e}[/red]")
+                continue
+
+    def display_menu(self):
+        """Display the professional MCP-HUB menu."""
+        menu_content = """
+[bold cyan]MCP-HUB Professional Server Manager[/bold cyan]
+
+[bold blue]🔍 Discovery & Installation:[/bold blue]
+1.  Search and Install Servers     | Discover and add MCP servers
+2.  View Server Categories         | Browse by type (AI, Web, File, DB, etc.)
+
+[bold green]⚙️  Server Management:[/bold green]
+3.  View Installed Servers         | List and manage configured servers
+4.  Enable/Disable Servers         | Toggle server availability
+5.  Reconfigure Server             | Update server settings
+6.  Uninstall Servers              | Remove servers (bulk support)
+
+[bold purple]🔧 Advanced Features:[/bold purple]
+7.  Server Health Check            | Check connection and status
+8.  Backup/Restore Config          | Backup and restore configurations
+9.  Inspect Server Registry        | View detailed server info
+10. Setup Server Connectivity      | Configure local/server connections
+
+[bold yellow]🛠️  System & Settings:[/bold yellow]
+11. Configure Smithery API Key     | Set up API access
+12. Clear API Cache                | Reset cached server data
+13. Server Directory Info          | View organization structure
+
+[bold gray]14. Back to Main Menu (q, quit)[/bold gray]
 """
-        self.console.print(Panel(Text.from_markup(menu_text), title="MCP-HUB", border_style="yellow"))
+
+        menu_panel = Panel(
+            Text.from_markup(menu_content),
+            title="[bold white]MCP-HUB Professional Edition[/bold white]",
+            border_style="blue",
+            padding=(1, 2)
+        )
+        self.console.print(menu_panel)
+
+    async def _handle_menu_choice(self, choice: str):
+        """Route menu choices to appropriate methods."""
+        choice = choice.strip().lower()
+
+        menu_actions = {
+            "1": self.search_servers,
+            "2": self.view_server_categories,
+            "3": self.view_installed_servers,
+            "4": self.toggle_server_enabled_status,
+            "5": self.reconfigure_server,
+            "6": self.uninstall_server,
+            "7": self.check_server_health,
+            "8": self.backup_restore_configuration,
+            "9": self.inspect_server_from_registry,
+            "10": self.setup_server_connectivity,
+            "11": self.configure_api_key,
+            "12": lambda: self.clear_api_cache(),
+            "13": lambda: self.show_server_directory(),
+        }
+
+        if choice in menu_actions:
+            try:
+                await menu_actions[choice]()
+                if choice in ["12", "13"]:  # Synchronous methods that need user confirmation
+                    await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+            except Exception as e:
+                self.console.print(f"[red]Error executing option {choice}: {e}[/red]")
+        elif choice in ["14", "q", "quit"]:
+            pass  # Handled by calling method
+        else:
+            self.console.print("[red]Invalid option. Please select 1-14.[/red]")
 
     async def search_servers(self):
-        """Handles the server search workflow and subsequent actions."""
+        """Search and install servers with advanced features."""
         try:
             while True:
-                self.console.print(Panel("You can use filters like 'owner:username' or 'is:verified'.", title="Advanced Search Tip", style="dim", border_style="blue"))
+                search_panel = Panel(
+                    "[dim]Tip: Use filters like 'owner:username', 'is:verified', 'filesystem', etc.[/dim]",
+                    title="[search] Advanced Server Search[/search]",
+                    border_style="blue"
+                )
+                self.console.print(search_panel)
+
                 query = await self.prompt_session.prompt_async("Enter search query: ", is_password=False)
-                with self.console.status("Searching..."):
+                if not query.strip():
+                    continue
+
+                with self.console.status("Searching Smithery registry..."):
                     results = await self.smithery_client.search_servers(query)
 
-                if not results:
-                    self.console.print("[red]Received an empty or invalid response from the server.[/red]")
+                if not results or not results.get("servers"):
+                    self.console.print("[yellow]No servers found. Try different keywords or visit smithery.io[/yellow]")
                     continue
 
-                servers = results.get("servers", [])
-                if not servers:
-                    self.console.print("[yellow]No servers found.[/yellow]")
-                    continue
+                servers = results["servers"]
+                self.console.print(f"\n[green]Found {len(servers)} server(s)[/green]")
 
-                self.console.print(Panel(f"Found {len(servers)} server(s).", border_style="green"))
+                # Fetch detailed server information
+                with self.console.status("Getting server details..."):
+                    detailed_servers = await self._fetch_server_details(servers[:10])  # Limit to 10
 
-                tasks = [self.smithery_client.get_server(s["qualifiedName"]) for s in servers]
-                detailed_servers = await asyncio.gather(*tasks, return_exceptions=True)
+                # Display server cards
+                self._display_server_cards(detailed_servers)
 
-                for i, server in enumerate(detailed_servers):
-                    if isinstance(server, Exception) or not server:
-                        continue
-
-                    display_name = server.get("displayName", server.get("qualifiedName"))
-                    description = server.get("description", "No description available.")
-                    tool_count = str(len(server.get("tools", [])))
-                    homepage = server.get("homepage", "N/A")
-                    link = f"[link={homepage}]{homepage}[/link]" if homepage != "N/A" else homepage
-                    q_name = server.get("qualifiedName")
-
-                    security_info = server.get("security") or {}
-                    scan_passed = security_info.get("scanPassed", False)
-                    scan_text = "[bold green]Yes[/bold green]" if scan_passed else "[bold red]No[/bold red]"
-
-                    card_content = f"[bold]Description:[/bold] {description}\n"
-                    card_content += f"[bold]Tools:[/bold] {tool_count} | [bold]Homepage:[/bold] {link} | [bold]Security Scan Passed:[/bold] {scan_text}"
-
-                    panel_title = f"({i + 1}) [bold cyan]{display_name}[/bold cyan]  [dim]({q_name})[/dim]"
-
-                    self.console.print(Panel(
-                        Text.from_markup(card_content),
-                        title=Text.from_markup(panel_title),
-                        border_style="blue",
-                        expand=True
-                    ))
-
-                # New unified workflow prompt
+                # Interactive installation workflow
                 action = await self.prompt_session.prompt_async(
-                    "Enter an ID to install, (s)earch again, or (q)uit to menu: ",
+                    "Enter server ID to install, (s)earch again, or (q)uit: ",
                     is_password=False
                 )
 
@@ -152,508 +176,899 @@ class MCPHubManager:
                     break
                 elif action.lower() == 's':
                     continue
-                else:
-                    try:
-                        server_index = int(action) - 1
-                        if 0 <= server_index < len(detailed_servers):
-                            selected_server = detailed_servers[server_index]
-                            # Call add_server, passing the details to avoid a second API call
-                            await self.add_server(server_details=selected_server)
-                        else:
-                            self.console.print("[red]Invalid ID.[/red]")
-                    except (ValueError, IndexError):
-                        self.console.print("[red]Invalid input. Please enter a valid ID, 's', or 'q'.[/red]")
 
-        except ValueError as e:
-            if "API key is not set" in str(e):
-                self.console.print("[bold yellow]A Smithery API key is required to search for servers.[/bold yellow]")
-                await self.configure_api_key()
-                if self.smithery_client.api_key:
-                    self.console.print("[green]API Key set. Please try your search again.[/green]")
-                else:
-                    self.console.print("[yellow]Search cancelled because API key was not provided.[/yellow]")
-            else:
-                self.console.print(f"[red]An unexpected value error occurred: {e}[/red]")
+                await self._handle_server_installation(detailed_servers, action)
+
         except Exception as e:
-            self.console.print(f"[red]An unexpected error occurred during search: {e}[/red]")
+            self.console.print(f"[red]Search error: {e}[/red]")
 
-    async def add_server(self, server_details: dict = None):
-        """Handles the server installation workflow."""
-        server_name = ""
+    async def _fetch_server_details(self, servers):
+        """Fetch detailed information for servers."""
+        tasks = [self.smithery_client.get_server(s["qualifiedName"]) for s in servers]
+        detailed_servers = await asyncio.gather(*tasks, return_exceptions=True)
+        return [(i, server) for i, server in enumerate(detailed_servers) if not isinstance(server, Exception)]
+
+    def _display_server_cards(self, servers_data):
+        """Display professional server information cards."""
+        for index, server in servers_data:
+            if not server:
+                continue
+
+            display_name = server.get("displayName", "Unknown Server")
+            q_name = server.get("qualifiedName")
+            description = server.get("description", "No description available.")
+            tool_count = len(server.get("tools", []))
+            homepage = server.get("homepage", "")
+            security_passed = server.get("security", {}).get("scanPassed", False)
+
+            # Security indicator
+            security_text = "[bold green]Secure[/bold green]" if security_passed else "[bold red]Unverified[/bold red]"
+
+            card_content = f"""[bold]Description:[/bold] {description[:100]}{"..." if len(description) > 100 else ""}
+[bold]Tools:[/bold] {tool_count} | [bold]Security:[/bold] {security_text}
+[bold]Homepage:[/bold] [link={homepage}]{homepage}[/link]"""
+
+            server_panel = Panel(
+                Text.from_markup(card_content),
+                title=f"[bold cyan]({index + 1}) {display_name}[/bold cyan]\n[dim]{q_name}[/dim]",
+                border_style="blue",
+                padding=(1, 2),
+                expand=True
+            )
+            self.console.print(server_panel)
+
+    async def _handle_server_installation(self, servers_data, action):
+        """Handle server installation workflow."""
         try:
-            # If server details aren't passed, we're in the old workflow: prompt for name and fetch
+            server_index = int(action.strip()) - 1
+            selected_server = None
+
+            for index, server in servers_data:
+                if index == server_index:
+                    selected_server = server
+                    break
+
+            if selected_server:
+                await self.add_server(server_details=selected_server)
+            else:
+                self.console.print("[red]Invalid server ID.[/red]")
+
+        except (ValueError, IndexError):
+            self.console.print("[red]Invalid input. Enter a valid server ID.[/red]")
+
+    async def add_server(self, server_details=None):
+        """Professional server installation with smart configuration."""
+        server_name = ""
+
+        try:
+            # Get server details if not provided
             if server_details is None:
-                server_name = await self.prompt_session.prompt_async("Enter the name of the server to install: ", is_password=False)
+                server_name = await self.prompt_session.prompt_async(
+                    "Enter server qualified name: ", is_password=False
+                )
                 if not server_name:
                     return
 
-                with self.console.status(f"Getting details for {server_name}..."):
+                with self.console.status(f"Fetching {server_name}..."):
                     server_details = await self.smithery_client.get_server(server_name)
 
-            # Use the qualifiedName from the provided details
             server_name = server_details.get("qualifiedName")
+            display_name = server_details.get("displayName", server_name)
 
-            # Extract connection information from the Smithery API response and ensure it's saved properly
-            if "connections" in server_details and server_details["connections"]:
-                connection_info = server_details["connections"][0]
-                conn_type = connection_info.get("type")
-                conn_url = connection_info.get("url")
-
-                # For HTTP/SSE servers, save the URL explicitly to ensure persistence
-                if conn_type in ["shttp", "http", "sse"] and conn_url:
-                    # Ensure we have a connections array in the right format for the connector
-                    server_details["connections"] = [connection_info]
-                elif conn_type == "stdio" and server_details.get("local_script_path"):
-                    # For stdio servers, ensure local path is saved properly
-                    server_details["local_script_path"] = server_details["local_script_path"]
-
-            installed_servers = self.config_manager.get_installed_servers(self.config_name)
-            if any(s.get("qualifiedName") == server_name for s in installed_servers):
-                self.console.print(f"[yellow]Server '{server_name}' is already installed.[/yellow]")
+            # Check if already installed
+            if self._is_server_installed(server_name):
+                self.console.print(f"[yellow]{display_name} is already installed.[/yellow]")
                 return
 
-            security_info = server_details.get("security") or {}
-            scan_passed = security_info.get("scanPassed", False)
-            scan_text = "[bold green]Yes[/bold green]" if scan_passed else "[bold red]No[/bold red]"
+            # Display server preview
+            self._display_server_preview(server_details)
 
-            self.console.print(Panel(f"[bold]Name:[/bold] {server_details.get('displayName')}\n"
-                                   f"[bold]Description:[/bold] {server_details.get('description')}\n"
-                                   f"[bold]Security Scan Passed:[/bold] {scan_text}"))
+            # Handle different connection types
+            await self._handle_server_type_installation(server_details)
 
-            # Check connection type and handle stdio servers differently
-            connection_info = (server_details.get("connections") or [{}])[0]
-            conn_type = connection_info.get("type")
-
-            if conn_type == "stdio":
-                self.console.print(Panel(
-                    "[bold yellow]This is a `stdio` server that must be run locally.[/bold yellow]\n\n"
-                    "1. Please clone the server's repository to your local machine.\n"
-                    f"   Git URL: [blue underline]{server_details.get('homepage')}[/blue underline]\n\n"
-                    "2. Enter the absolute path to the server's main executable script below.",
-                    title="Manual Setup Required"
-                ))
-                local_path = await self.prompt_session.prompt_async("Enter local script path: ", is_password=False)
-
-                import os
-                if not os.path.exists(local_path):
-                    self.console.print(f"[red]Error: Path not found: {local_path}[/red]")
-                    return
-
-                # Store the local path for the connector to use
-                server_details["local_script_path"] = local_path
-
+            # Configure server parameters
             config = await self._ask_for_server_config(server_details)
             if config is None:
                 return
 
-            server_details["config"] = config
-            server_details["enabled"] = True
+            # Finalize installation
+            await self._finalize_server_installation(server_details, config, display_name)
 
-            self.config_manager.add_installed_server(server_details, self.config_name)
+        except Exception as e:
+            error_type = type(e).__name__
+            self.console.print(f"[red]Installation failed: {error_type}: {e}[/red]")
 
-            summary_text = f"[bold]Name:[/bold] {server_details.get('displayName')}\n"
-            summary_text += f"[bold]Description:[/bold] {server_details.get('description')}\n\n"
-            summary_text += "[bold]Configuration:[/bold]\n"
-            if config:
-                for key, value in config.items():
-                    summary_text += f"  - {key}: {value}\n"
-            else:
-                summary_text += "  - No configuration required."
+    def _is_server_installed(self, server_name):
+        """Check if server is already installed."""
+        installed_servers = self.config_manager.get_installed_servers(self.config_name)
+        return any(s.get("qualifiedName") == server_name for s in installed_servers)
 
-            self.console.print(Panel(Text.from_markup(summary_text), title="[bold green]Installation Successful[/bold green]", border_style="green"))
+    def _display_server_preview(self, server_details):
+        """Display server information before installation."""
+        display_name = server_details.get("displayName")
+        description = server_details.get("description")
+        tool_count = len(server_details.get("tools", []))
+        security_passed = server_details.get("security", {}).get("scanPassed", False)
 
+        security_text = "[bold green]Verified[/bold green]" if security_passed else "[bold red]Unverified[/bold red]"
+
+        preview_panel = Panel(
+            f"[bold]Name:[/bold] {display_name}\n"
+            f"[bold]Description:[/bold] {description}\n"
+            f"[bold]Security:[/bold] {security_text}\n"
+            f"[bold]Available Tools:[/bold] {tool_count}",
+            title="[install] Server Preview",
+            border_style="green"
+        )
+        self.console.print(preview_panel)
+
+    async def _handle_server_type_installation(self, server_details):
+        """Handle installation based on server connection type."""
+        connection_info = server_details.get("connections", [{}])[0]
+        conn_type = connection_info.get("type")
+
+        if conn_type == "stdio":
+            await self._handle_stdio_installation(server_details)
+        elif conn_type in ["http", "shttp", "sse"]:
+            await self._handle_http_installation(server_details)
+
+    async def _handle_stdio_installation(self, server_details):
+        """Handle stdio server installation."""
+        display_name = server_details.get("displayName", server_details.get("qualifiedName"))
+
+        installation_panel = Panel(
+            f"[bold yellow]This is a Local Server[/bold yellow]\n\n"
+            "Installation Steps:\n"
+            f"1. Clone: {server_details.get('homepage', 'N/A')}\n"
+            f"2. Install: cd [repo-name] && npm install\n"
+            f"3. Build: npm run build && npm start\n\n"
+            "Enter the absolute path to the server's executable script below.",
+            title=f"{display_name} Setup",
+            border_style="yellow"
+        )
+        self.console.print(installation_panel)
+
+        auto_clone = await self.prompt_session.prompt_async(
+            "Auto-clone repository? (Y/n): ", is_password=False
+        )
+
+        if auto_clone.lower() != 'n':
+            await self._clone_server_repository(server_details)
+        else:
+            local_path = await self.prompt_session.prompt_async(
+                "Enter local script path: ", is_password=False
+            )
+            if local_path and self._validate_local_path(local_path):
+                server_details["local_script_path"] = local_path
+
+    async def _handle_http_installation(self, server_details):
+        """Handle HTTP-based server installation."""
+        # Will be implemented by the server connectivity handler
+        pass
+
+    def _validate_local_path(self, path):
+        """Validate local file path."""
+        import os
+        if os.path.exists(path):
+            self.console.print(f"[green]Path validated: {path}[/green]")
+            return True
+        else:
+            self.console.print(f"[red]Path not found: {path}[/red]")
+            return False
+
+    async def _ask_for_server_config(self, server_details):
+        """Interactive server configuration."""
+        config_schema = server_details.get("connections", [{}])[0].get("configSchema")
+
+        if not config_schema or "properties" not in config_schema:
+            return {}
+
+        config_panel = Panel(
+            "Configure server parameters:",
+            title="Server Configuration",
+            border_style="yellow"
+        )
+        self.console.print(config_panel)
+
+        try:
+            config = {}
+            for key, prop in config_schema["properties"].items():
+                config[key] = await self._get_config_value(key, prop)
+            return config
+        except (KeyboardInterrupt, EOFError):
+            return None
+
+    async def _get_config_value(self, key, prop):
+        """Get configuration value from user."""
+        prop_type = prop.get("type", "string")
+        prop_desc = prop.get("description", f"Enter value for {key}")
+        prop_default = prop.get("default")
+
+        prompt_text = f"{prop_desc}"
+        if prop_default is not None:
+            prompt_text += f" (default: {prop_default})"
+
+        if prop_type == "boolean":
+            return await self._get_boolean_config(prompt_text, prop_default)
+        elif prop_type in ["number", "integer"]:
+            return await self._get_numeric_config(prompt_text, prop_type, prop_default)
+        else:
+            return await self._get_string_config(prompt_text, prop_default)
+
+    async def _get_boolean_config(self, prompt_text, default):
+        """Get boolean configuration value."""
+        while True:
+            value = await self.prompt_session.prompt_async(
+                f"{prompt_text} (y/n): ", is_password=False
+            )
+            if not value and default is not None:
+                return default
+            if value.lower() in ["y", "yes"]:
+                return True
+            if value.lower() in ["n", "no"]:
+                return False
+            self.console.print("[red]Invalid input. Enter 'y' or 'n'.[/red]")
+
+    async def _get_numeric_config(self, prompt_text, prop_type, default):
+        """Get numeric configuration value."""
+        while True:
+            value = await self.prompt_session.prompt_async(f"{prompt_text}: ", is_password=False)
+            if not value and default is not None:
+                return default
+            try:
+                return int(value) if prop_type == "integer" else float(value)
+            except ValueError:
+                self.console.print(f"[red]Invalid {prop_type}. Try again.[/red]")
+
+    async def _get_string_config(self, prompt_text, default):
+        """Get string configuration value."""
+        value = await self.prompt_session.prompt_async(f"{prompt_text}: ", is_password=False)
+        return value if value else default
+
+    async def _finalize_server_installation(self, server_details, config, display_name):
+        """Finalize the server installation process."""
+        server_details["config"] = config if config else {}
+        server_details["enabled"] = True
+
+        # Save to configuration
+        self.config_manager.add_installed_server(server_details, self.config_name)
+
+        # Display success
+        success_panel = Panel(
+            f"""[bold green]Installation Successful![/bold green]
+
+[bold]Server:[/bold] {display_name}
+[bold]Config:[/bold] {len(config) if config else 0} parameters set
+[bold]Status:[/bold] Enabled and ready to use
+
+[bold]Configuration:[/bold]
+{self._format_config_summary(config)}""",
+            title="Server Successfully Installed",
+            border_style="green"
+        )
+        self.console.print(success_panel)
+
+        # Reload clients to apply changes
+        with self.console.status("Reloading servers..."):
             await self.client.reload_servers()
 
-        except ValueError as e:
-            if "API key is not set" in str(e):
-                self.console.print("[bold yellow]A Smithery API key is required to install servers.[/bold yellow]")
-                await self.configure_api_key()
-                if self.smithery_client.api_key:
-                    self.console.print("[green]API Key set. Please try installing the server again.[/green]")
-                else:
-                    self.console.print("[yellow]Installation cancelled because API key was not provided.[/yellow]")
-            else:
-                self.console.print(f"[red]An unexpected value error occurred: {e}[/red]")
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                self.console.print(f"[red]Server '{server_name}' not found in the registry.[/red]")
-            else:
-                self.console.print(f"[red]Error fetching server details: {e}[/red]")
-        except Exception as e:
-            self.console.print(f"[red]An unexpected error occurred during installation: {e}[/red]")
+        self.console.print("[green]Server is now active![/green]")
+
+    def _format_config_summary(self, config):
+        """Format configuration summary."""
+        if not config:
+            return "  No configuration required"
+
+        lines = []
+        for key, value in config.items():
+            lines.append(f"  {key}: {value}")
+        return "\n".join(lines)
 
     async def uninstall_server(self):
-        """Handles the server uninstallation workflow."""
+        """Uninstall servers with bulk operations support."""
         try:
             installed_servers = self.config_manager.get_installed_servers(self.config_name)
             if not installed_servers:
                 self.console.print("[yellow]No servers installed.[/yellow]")
                 return
 
-            table = Table(title="Installed Servers")
-            table.add_column("ID", style="magenta")
-            table.add_column("Display Name", style="cyan")
-            table.add_column("Qualified Name", style="dim")
+            # Display server table
+            self._display_uninstall_table(installed_servers)
 
-            for i, server in enumerate(installed_servers):
-                table.add_row(str(i + 1), server.get('displayName'), server.get('qualifiedName'))
+            # Get user selection
+            selection = await self.prompt_session.prompt_async(
+                "Enter server ID(s) (ranges like 1-3, individual like 1 3 5, or Enter to cancel): ",
+                is_password=False
+            )
 
-            self.console.print(table)
-
-            choice = await self.prompt_session.prompt_async("Enter the ID(s) of the server(s) to uninstall (supports ranges like 1-3, spaces like 1 3 5, or press Enter to cancel): ", is_password=False)
-            if not choice:
+            if not selection:
                 return
 
-            # Parse the input to handle ranges and space-separated inputs
-            server_indices = self._parse_server_indices(choice, len(installed_servers))
+            # Parse selection
+            server_indices = self._parse_server_indices(selection, len(installed_servers))
             if not server_indices:
-                self.console.print("[red]No valid server IDs found in input.[/red]")
+                self.console.print("[red]No valid servers selected.[/red]")
                 return
 
-            # Remove servers in reverse order to avoid index shifting issues
-            removed_servers = []
-            for server_index in sorted(server_indices, reverse=True):
-                if 0 <= server_index < len(installed_servers):
-                    server_to_uninstall = installed_servers[server_index]
-                    server_name = server_to_uninstall.get("qualifiedName")
-                    removed_servers.append(server_name)
-                    # Remove from installed_servers list
-                    installed_servers.pop(server_index)
-
-            if not removed_servers:
-                self.console.print("[red]No servers were uninstalled.[/red]")
+            # Confirm uninstallation
+            if not await self._confirm_uninstallation(server_indices, installed_servers):
                 return
 
-            # Update the configuration with the remaining servers
-            config_data = self.config_manager.load_configuration(self.config_name)
-            config_data["installed_servers"] = installed_servers
-            self.config_manager.save_configuration(config_data, self.config_name)
-
-            if len(removed_servers) == 1:
-                self.console.print(f"[green]Server '{removed_servers[0]}' has been uninstalled.[/green]")
-            else:
-                removed_list = ", ".join([f"'{name}'" for name in removed_servers])
-                self.console.print(f"[green]The following {len(removed_servers)} servers have been uninstalled: {removed_list}[/green]")
-
-            with self.console.status("Reloading servers to apply changes..."):
-                await self.client.reload_servers()
-            self.console.print("[green]Servers have been removed from the current session.[/green]")
+            # Perform uninstallation
+            await self._perform_uninstallation(server_indices, installed_servers)
 
         except Exception as e:
-            self.console.print(f"[red]Error uninstalling server: {e}[/red]")
+            self.console.print(f"[red]Uninstall error: {e}[/red]")
+
+    def _display_uninstall_table(self, servers):
+        """Display servers available for uninstallation."""
+        table = Table(title="[uninstall] Available Servers", title_style="red")
+
+        table.add_column("ID", style="magenta", no_wrap=True)
+        table.add_column("Display Name", style="cyan")
+        table.add_column("Qualified Name", style="dim")
+        table.add_column("Status", style="green")
+
+        for i, server in enumerate(servers):
+            status = "[bold green]Enabled[/bold green]" if server.get("enabled", True) else "[bold red]Disabled[/bold red]"
+            table.add_row(str(i + 1), server.get('displayName'), server.get('qualifiedName'), status)
+
+        self.console.print(table)
+
+    async def _confirm_uninstallation(self, indices, servers):
+        """Confirm server uninstallation."""
+        selected_servers = [servers[i].get('displayName', servers[i].get('qualifiedName')) for i in indices]
+
+        confirm_panel = Panel(
+            f"[bold red]Confirm Uninstallation[/bold red]\n\n"
+            f"[bold]Servers to remove:[/bold]\n" +
+            "\n".join(f"  {name}" for name in selected_servers) + "\n\n" +
+            "[bold yellow]This action cannot be undone![/bold yellow]",
+            title="Confirmation Required",
+            border_style="red"
+        )
+        self.console.print(confirm_panel)
+
+        confirm = await self.prompt_session.prompt_async(
+            "Type 'DELETE' to confirm or Enter to cancel: ", is_password=False
+        )
+
+        return confirm.strip().lower() == "delete"
+
+    async def _perform_uninstallation(self, indices, servers):
+        """Execute server uninstallation."""
+        removed_servers = []
+
+        for server_index in sorted(indices, reverse=True):
+            server_to_remove = servers[server_index]
+            server_name = server_to_remove.get("qualifiedName", server_to_remove.get("displayName"))
+            removed_servers.append(server_name)
+            servers.pop(server_index)
+
+        # Update configuration
+        config_data = self.config_manager.load_configuration(self.config_name)
+        config_data["installed_servers"] = servers
+        self.config_manager.save_configuration(config_data, self.config_name)
+
+        # Display results
+        result_panel = Panel(
+            f"[bold green]Uninstallation Complete[/bold green]\n\n"
+            f"[bold]Removed:[/bold] {len(removed_servers)} server(s)\n" +
+            "\n".join(f"  {name}" for name in removed_servers),
+            title="Servers Removed",
+            border_style="green"
+        )
+        self.console.print(result_panel)
+
+        # Reload servers
+        with self.console.status("Updating server configuration..."):
+            await self.client.reload_servers()
 
     def _parse_server_indices(self, input_str: str, max_index: int) -> list:
-        """Parse server indices from input string supporting ranges and space-separated values.
-
-        Args:
-            input_str: Input string like "1-3", "1 3 5", or "2"
-            max_index: Maximum valid index (length of installed servers)
-
-        Returns:
-            List of valid server indices (0-based)
-        """
+        """Parse server selection with support for ranges and individual IDs."""
         indices = set()
 
-        # Split by spaces first
         parts = input_str.strip().split()
-
         for part in parts:
-            part = part.strip()
-            if not part:
-                continue
-
-            # Check if it's a range (contains '-')
             if '-' in part:
+                # Range handling
                 try:
-                    range_parts = part.split('-')
-                    if len(range_parts) == 2:
-                        start = int(range_parts[0].strip()) - 1  # Convert to 0-based
-                        end = int(range_parts[1].strip()) - 1    # Convert to 0-based
-
-                        if 0 <= start <= end < max_index:
-                            for i in range(start, end + 1):
-                                indices.add(i)
-                        else:
-                            self.console.print(f"[yellow]Warning: Invalid range '{part}', ignoring[/yellow]")
+                    start, end = map(int, part.split('-'))
+                    if 1 <= start <= end <= max_index:
+                        indices.update(range(start - 1, end))
+                    else:
+                        self.console.print(f"[yellow]Invalid range: {part}[/yellow]")
                 except ValueError:
-                    self.console.print(f"[yellow]Warning: Invalid range format '{part}', ignoring[/yellow]")
+                    self.console.print(f"[yellow]Invalid range format: {part}[/yellow]")
             else:
-                # It's a single number
+                # Individual ID
                 try:
-                    server_index = int(part) - 1  # Convert to 0-based
+                    server_index = int(part) - 1
                     if 0 <= server_index < max_index:
                         indices.add(server_index)
                     else:
-                        self.console.print(f"[yellow]Warning: Server ID '{part}' is out of range, ignoring[/yellow]")
+                        self.console.print(f"[yellow]ID out of range: {part}[/yellow]")
                 except ValueError:
-                    self.console.print(f"[yellow]Warning: Invalid server ID '{part}', ignoring[/yellow]")
+                    self.console.print(f"[yellow]Invalid ID: {part}[/yellow]")
 
         return sorted(list(indices))
 
     async def view_installed_servers(self):
-        """Displays details for installed servers."""
-        self.console.print(Panel("Viewing installed servers...", border_style="blue"))
+        """Display detailed information about installed servers."""
         installed_servers = self.config_manager.get_installed_servers(self.config_name)
 
         if not installed_servers:
             self.console.print("[yellow]No servers are currently installed.[/yellow]")
             return
 
-        table = Table(title="Installed MCP Servers")
-        table.add_column("ID", style="magenta")
-        table.add_column("Display Name", style="cyan")
-        table.add_column("Qualified Name", style="dim")
+        # Summary table
+        self._display_servers_table(installed_servers)
 
-        for i, server in enumerate(installed_servers):
-            table.add_row(str(i + 1), server.get('displayName'), server.get('qualifiedName'))
+        # Detailed view prompt
+        choice = await self.prompt_session.prompt_async(
+            "Enter server ID for details or Enter to return: ", is_password=False
+        )
+
+        if choice:
+            await self._display_server_details(installed_servers, choice)
+
+    def _display_servers_table(self, servers):
+        """Display servers in a professional table."""
+        table = Table(title="[view] Installed Servers", title_style="cyan")
+
+        table.add_column("#", style="magenta", no_wrap=True)
+        table.add_column("Display Name", style="cyan", max_width=25)
+        table.add_column("Tools", style="green", no_wrap=True)
+        table.add_column("Status", style="bold white", no_wrap=True)
+        table.add_column("Type", style="dim cyan", no_wrap=True)
+
+        for i, server in enumerate(servers):
+            display_name = server.get('displayName', server.get('qualifiedName', 'Unknown'))
+            tool_count = str(len(server.get("tools", [])))
+
+            status = "[bold green]Active[/bold green]" if server.get("enabled", True) else "[bold red]Disabled[/bold red]"
+
+            conn_type = (server.get("connections", [{}])[0] or {}).get("type", "unknown")
+            type_display = {
+                "stdio": "LOCAL",
+                "http": "HTTP",
+                "shttp": "HTTPS",
+                "sse": "STREAM"
+            }.get(conn_type, conn_type.upper())
+
+            table.add_row(str(i + 1), display_name, tool_count, status, type_display)
 
         self.console.print(table)
 
+    async def _display_server_details(self, servers, choice):
+        """Display detailed server information."""
         try:
-            choice = await self.prompt_session.prompt_async("Enter the ID of the server to view (or press Enter to return): ", is_password=False)
-            if not choice:
-                return
+            server_index = int(choice.strip()) - 1
+            if 0 <= server_index < len(servers):
+                server = servers[server_index]
 
-            server_index = int(choice) - 1
-            if 0 <= server_index < len(installed_servers):
-                server = installed_servers[server_index]
+                # Build comprehensive server card
+                display_name = server.get('displayName')
+                q_name = server.get('qualifiedName')
+                description = server.get('description', 'No description available.')
+                homepage = server.get('homepage', '')
 
-                summary_text = f"[bold]Display Name:[/bold] {server.get('displayName')}\n"
-                summary_text += f"[bold]Qualified Name:[/bold] {server.get('qualifiedName')}\n"
-                summary_text += f"[bold]Description:[/bold] {server.get('description')}\n"
-                summary_text += f"[bold]Homepage:[/bold] [link={server.get('homepage')}]{server.get('homepage')}[/link]\n\n"
-                summary_text += "[bold]Saved Configuration:[/bold]\n"
+                # Configuration summary
+                config = server.get('config', {})
+                config_count = len(config)
 
-                config = server.get("config", {})
+                # Tools summary
+                tools = server.get('tools', [])
+                tool_names = [t.get('name', 'Unknown') for t in tools[:5]]
+                if len(tools) > 5:
+                    tool_names.append(f"... and {len(tools) - 5} more")
+
+                # Connection info
+                conn_info = (server.get("connections", [{}])[0] or {})
+                conn_type = conn_info.get("type", "unknown")
+                conn_url = conn_info.get("url", "N/A")
+
+                # Build detailed panel
+                details_panel = Panel(
+                    f"""[bold blue]Server Information[/bold blue]
+
+[bold]Name:[/bold] {display_name}
+[bold]Qualified Name:[/bold] {q_name}
+[bold]Description:[/bold] {description}
+
+[bold cyan]Tools & Capabilities[/bold cyan]
+[bold]Available Tools:[/bold] {len(tools)}
+[bold]Sample Tools:[/bold] {', '.join(tool_names[:3]) if tool_names else 'None'}
+
+[bold purple]Configuration[/bold purple]
+[bold]Parameters Set:[/bold] {config_count}
+[bold]Connection Type:[/bold] {conn_type.upper()}
+
+[bold yellow]Links & Resources[/bold yellow]
+[bold]Homepage:[/bold] [link={homepage}]{homepage}[/link]""",
+                    title=f"[details] {display_name} Details",
+                    border_style="cyan",
+                    padding=(1, 2)
+                )
+                self.console.print(details_panel)
+
+                # Configuration details if available
                 if config:
-                    for key, value in config.items():
-                        summary_text += f"  - {key}: {value}\n"
-                else:
-                    summary_text += "  - No configuration was required or set for this server."
-
-                self.console.print(Panel(Text.from_markup(summary_text), title="[bold cyan]Server Details[/bold cyan]", border_style="cyan", expand=False))
+                    config_panel = Panel(
+                        "\n".join(f"[bold]{k}:[/bold] {v}" for k, v in config.items()),
+                        title="Configuration Details",
+                        border_style="yellow"
+                    )
+                    self.console.print(config_panel)
             else:
-                self.console.print("[red]Invalid ID.[/red]")
+                self.console.print("[red]Invalid server ID.[/red]")
         except (ValueError, IndexError):
-            self.console.print("[red]Invalid input. Please enter a valid number.[/red]")
-        except (KeyboardInterrupt, EOFError):
-            self.console.print("\n")
-
-    async def inspect_server_from_registry(self):
-        """Fetches and displays details for any server from the registry."""
-        server_name = ""
-        try:
-            server_name = await self.prompt_session.prompt_async("Enter the qualified name of the server to inspect: ", is_password=False)
-            if not server_name:
-                return
-
-            with self.console.status(f"Fetching details for {server_name}..."):
-                server = await self.smithery_client.get_server(server_name)
-
-            security_info = server.get("security") or {}
-            scan_passed = security_info.get("scanPassed", False)
-            scan_text = "[bold green]Yes[/bold green]" if scan_passed else "[bold red]No[/bold red]"
-
-            summary_text = f"[bold]Display Name:[/bold] {server.get('displayName')}\n"
-            summary_text += f"[bold]Qualified Name:[/bold] {server.get('qualifiedName')}\n"
-            summary_text += f"[bold]Description:[/bold] {server.get('description')}\n"
-            summary_text += f"[bold]Homepage:[/bold] [link={server.get('homepage')}]{server.get('homepage')}[/link]\n"
-            summary_text += f"[bold]Security Scan Passed:[/bold] {scan_text}\n\n"
-            summary_text += "[bold]Tools:[/bold]\n"
-
-            tools = server.get("tools", [])
-            if tools:
-                for tool in tools:
-                    summary_text += f"  - {tool.get('name')}: {tool.get('description')}\n"
-            else:
-                summary_text += "  - No tools listed for this server."
-
-            self.console.print(Panel(Text.from_markup(summary_text), title="[bold cyan]Registry Server Details[/bold cyan]", border_style="cyan", expand=False))
-
-        except ValueError as e:
-            if "API key is not set" in str(e):
-                self.console.print("[bold yellow]A Smithery API key is required to inspect servers.[/bold yellow]")
-                await self.configure_api_key()
-                if self.smithery_client.api_key:
-                    self.console.print("[green]API Key set. Please try inspecting the server again.[/green]")
-                else:
-                    self.console.print("[yellow]Action cancelled because API key was not provided.[/yellow]")
-            else:
-                self.console.print(f"[red]An unexpected value error occurred: {e}[/red]")
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                self.console.print(f"[red]Server '{server_name}' not found in the registry.[/red]")
-            else:
-                self.console.print(f"[red]Error fetching server details: {e}[/red]")
-        except Exception as e:
-            self.console.print(f"[red]An unexpected error occurred: {e}[/red]")
+            self.console.print("[red]Invalid input.[/red]")
 
     async def toggle_server_enabled_status(self):
-        """Allows enabling or disabling an installed server."""
+        """Toggle server enabled/disabled status."""
         try:
             installed_servers = self.config_manager.get_installed_servers(self.config_name)
             if not installed_servers:
-                self.console.print("[yellow]No servers are currently installed.[/yellow]")
+                self.console.print("[yellow]No servers to toggle.[/yellow]")
                 return
 
-            table = Table(title="Enable/Disable Servers")
-            table.add_column("ID", style="magenta")
+            # Display servers with current status
+            table = Table(title="[toggle] Enable/Disable Servers", title_style="yellow")
+
+            table.add_column("ID", style="magenta", no_wrap=True)
             table.add_column("Display Name", style="cyan")
-            table.add_column("Status", style="dim")
+            table.add_column("Current Status", style="bold white")
 
             for i, server in enumerate(installed_servers):
-                status = "[bold green]Enabled[/bold green]" if server.get("enabled", True) else "[bold red]Disabled[/bold red]"
+                status = "[bold green]ENABLED[/bold green]" if server.get("enabled", True) else "[bold red]DISABLED[/bold red]"
                 table.add_row(str(i + 1), server.get('displayName'), status)
 
             self.console.print(table)
 
-            choice = await self.prompt_session.prompt_async("Enter the ID(s) of the server(s) to toggle (supports ranges like 1-3, spaces like 1 3 5, or press Enter to cancel): ", is_password=False)
-            if not choice:
+            # Get user selection
+            selection = await self.prompt_session.prompt_async(
+                "Enter server ID(s) (ranges like 1-3, individual like 1 3 5, or Enter to cancel): ",
+                is_password=False
+            )
+
+            if not selection:
                 return
 
-            # Parse the input to handle ranges and space-separated inputs
-            server_indices = self._parse_server_indices(choice, len(installed_servers))
+            # Parse and validate selection
+            server_indices = self._parse_server_indices(selection, len(installed_servers))
             if not server_indices:
-                self.console.print("[red]No valid server IDs found in input.[/red]")
+                self.console.print("[red]No valid servers selected.[/red]")
                 return
 
-            # Toggle each selected server
+            # Toggle selected servers
             toggled_servers = []
-            for server_index in server_indices:
-                server_to_toggle = installed_servers[server_index]
-                current_status = server_to_toggle.get("enabled", True)
-                server_to_toggle["enabled"] = not current_status
-                new_status = "[bold green]Enabled[/bold green]" if not current_status else "[bold red]Disabled[/bold red]"
-                toggled_servers.append(f"{server_to_toggle.get('displayName')} ({new_status})")
+            for idx in server_indices:
+                server = installed_servers[idx]
+                old_status = server.get("enabled", True)
+                server["enabled"] = not old_status
 
-            # Update the configuration
+                status_text = "[bold green]ENABLED[/bold green]" if not old_status else "[bold red]DISABLED[/bold red]"
+                toggled_servers.append(f"{server.get('displayName')} -> {status_text}")
+
+            # Save updated configuration
             config_data = self.config_manager.load_configuration(self.config_name)
             config_data["installed_servers"] = installed_servers
             self.config_manager.save_configuration(config_data, self.config_name)
 
-            if len(toggled_servers) == 1:
-                self.console.print(f"[green]Server status toggled: {toggled_servers[0]}[/green]")
-            else:
-                self.console.print("[green]Server status toggled:[/green]")
-                for toggled in toggled_servers:
-                    self.console.print(f"  - {toggled}")
+            # Display results
+            result_panel = Panel(
+                f"[bold green]Server Status Updated[/bold green]\n\n" +
+                "\n".join(f"  {server}" for server in toggled_servers),
+                title="Status Changes",
+                border_style="green"
+            )
+            self.console.print(result_panel)
 
-            with self.console.status("Reloading servers to apply changes..."):
+            # Reload servers
+            with self.console.status("Applying changes..."):
                 await self.client.reload_servers()
 
-        except (ValueError, IndexError):
-            self.console.print("[red]Invalid input. Please enter a valid number.[/red]")
-        except (KeyboardInterrupt, EOFError):
-            self.console.print("\n")
+        except Exception as e:
+            self.console.print(f"[red]Toggle error: {e}[/red]")
 
     async def reconfigure_server(self):
-        """Allows re-configuring an already installed server."""
+        """Reconfigure an installed server's parameters."""
         try:
             installed_servers = self.config_manager.get_installed_servers(self.config_name)
             if not installed_servers:
-                self.console.print("[yellow]No servers are currently installed.[/yellow]")
+                self.console.print("[yellow]No servers to reconfigure.[/yellow]")
                 return
 
-            table = Table(title="Re-configure Server")
-            table.add_column("ID", style="magenta")
+            # Display servers
+            table = Table(title="[reconfig] Reconfigure Servers", title_style="yellow")
+
+            table.add_column("ID", style="magenta", no_wrap=True)
             table.add_column("Display Name", style="cyan")
+            table.add_column("Configured", style="green", no_wrap=True)
 
             for i, server in enumerate(installed_servers):
-                table.add_row(str(i + 1), server.get('displayName'))
+                has_config = "Yes" if server.get("config") else "No"
+                table.add_row(str(i + 1), server.get('displayName'), has_config)
 
             self.console.print(table)
 
-            choice = await self.prompt_session.prompt_async("Enter the ID of the server to re-configure (or press Enter to cancel): ", is_password=False)
+            # Get server selection
+            choice = await self.prompt_session.prompt_async(
+                "Enter server ID to reconfigure: ", is_password=False
+            )
+
             if not choice:
                 return
 
-            server_index = int(choice) - 1
-            if not (0 <= server_index < len(installed_servers)):
-                self.console.print("[red]Invalid ID.[/red]")
-                return
+            try:
+                server_index = int(choice.strip()) - 1
+                if not (0 <= server_index < len(installed_servers)):
+                    raise ValueError()
 
-            server_to_reconfigure = installed_servers[server_index]
-            server_name = server_to_reconfigure.get("qualifiedName")
+                selected_server = installed_servers[server_index]
+                server_name = selected_server.get("displayName", selected_server.get("qualifiedName"))
 
-            with self.console.status(f"Fetching latest details for {server_name}..."):
-                latest_details = await self.smithery_client.get_server(server_name)
+                self.console.print(f"\n[bold cyan]Reconfiguring: {server_name}[/bold cyan]")
 
-            self.console.print(f"Re-configuring '{latest_details.get('displayName')}'. Please provide the new configuration:")
-            new_config = await self._ask_for_server_config(latest_details)
+                # Fetch latest server details
+                with self.console.status("Getting latest server information..."):
+                    latest_details = await self.smithery_client.get_server(
+                        selected_server.get("qualifiedName")
+                    )
 
-            if new_config is None:
-                self.console.print("[yellow]Re-configuration cancelled.[/yellow]")
-                return
+                # Get new configuration
+                new_config = await self._ask_for_server_config(latest_details)
+                if new_config is None:
+                    return
 
-            installed_servers[server_index]["config"] = new_config
-            config_data = self.config_manager.load_configuration(self.config_name)
-            config_data["installed_servers"] = installed_servers
-            self.config_manager.save_configuration(config_data, self.config_name)
+                # Update server configuration
+                installed_servers[server_index]["config"] = new_config
 
-            self.console.print(f"[green]Server '{server_name}' has been re-configured successfully.[/green]")
+                # Save updated configuration
+                config_data = self.config_manager.load_configuration(self.config_name)
+                config_data["installed_servers"] = installed_servers
+                self.config_manager.save_configuration(config_data, self.config_name)
 
-            with self.console.status("Reloading servers to apply changes..."):
-                await self.client.reload_servers()
+                # Display success
+                success_panel = Panel(
+                    f"[bold green]Reconfiguration Complete[/bold green]\n\n"
+                    f"[bold]Server:[/bold] {server_name}\n"
+                    f"[bold]Parameters Updated:[/bold] {len(new_config) if new_config else 0}",
+                    title="Server Reconfigured",
+                    border_style="green"
+                )
+                self.console.print(success_panel)
 
-        except (ValueError, IndexError):
-            self.console.print("[red]Invalid input. Please enter a valid number.[/red]")
-        except (KeyboardInterrupt, EOFError):
-            self.console.print("\n")
+                # Reload servers
+                with self.console.status("Applying new configuration..."):
+                    await self.client.reload_servers()
 
-    async def _ask_for_server_config(self, server_details: dict) -> dict | None:
-        """Asks the user for server configuration based on a schema."""
-        config = {}
+            except (ValueError, IndexError):
+                self.console.print("[red]Invalid server ID.[/red]")
+
+        except Exception as e:
+            self.console.print(f"[red]Reconfiguration error: {e}[/red]")
+
+    async def inspect_server_from_registry(self):
+        """Inspect detailed server information from registry."""
         try:
-            if "connections" in server_details and server_details["connections"]:
-                config_schema = server_details["connections"][0].get("configSchema")
-                if not (config_schema and "properties" in config_schema):
-                    return {}
+            server_name = await self.prompt_session.prompt_async(
+                "Enter server qualified name: ", is_password=False
+            )
 
-                self.console.print(Panel("Please configure the server:", title="Configuration", border_style="yellow"))
-                for key, prop in config_schema["properties"].items():
-                    prop_type = prop.get("type", "string")
-                    prop_desc = prop.get("description", f"Enter value for {key}")
-                    prop_default = prop.get("default")
+            if not server_name:
+                return
 
-                    prompt_text = f"{prop_desc}"
-                    if prop_default is not None:
-                        prompt_text += f" (default: {prop_default})"
+            with self.console.status(f"Inspecting {server_name}..."):
+                server = await self.smithery_client.get_server(server_name)
 
-                    if prop_type == "boolean":
-                        while True:
-                            raw_value = await self.prompt_session.prompt_async(f"{prompt_text} (y/n): ", is_password=False)
-                            if not raw_value and prop_default is not None:
-                                value = bool(prop_default)
-                                break
-                            if raw_value.lower() in ["y", "yes"]:
-                                value = True
-                                break
-                            if raw_value.lower() in ["n", "no"]:
-                                value = False
-                                break
-                            self.console.print("[red]Invalid input. Please enter 'y' or 'n'.[/red]")
-                    elif prop_type in ["number", "integer"]:
-                        while True:
-                            raw_value = await self.prompt_session.prompt_async(f"{prompt_text}: ", is_password=False)
-                            if not raw_value and prop_default is not None:
-                                value = prop_default
-                                break
-                            try:
-                                value = int(raw_value) if prop_type == "integer" else float(raw_value)
-                                break
-                            except ValueError:
-                                self.console.print(f"[red]Invalid input. Please enter a valid {prop_type}.[/red]")
-                    else:
-                        raw_value = await self.prompt_session.prompt_async(f"{prompt_text}: ", is_password=False)
-                        value = raw_value if raw_value else prop_default
+            # Professional server inspection display
+            await self._display_registry_server_details(server)
 
-                    config[key] = value
-            return config
+        except Exception as e:
+            if "API key is not set" in str(e):
+                self.console.print("[bold yellow]API key required. Please configure Smithery API key first.[/bold yellow]")
+                await self.configure_api_key()
+            else:
+                self.console.print(f"[red]Inspection error: {e}[/red]")
+
+    async def _display_registry_server_details(self, server):
+        """Display comprehensive server details from registry."""
+        display_name = server.get("displayName", "Unknown Server")
+        q_name = server.get("qualifiedName", "")
+        description = server.get("description", "No description available.")
+        homepage = server.get("homepage", "")
+
+        # Security and installation info
+        security_info = server.get("security", {})
+        security_passed = security_info.get("scanPassed", False)
+        security_text = "[bold green]VERIFIED[/bold green]" if security_passed else "[bold red]UNVERIFIED[/bold red]"
+
+        # Tools analysis
+        tools = server.get("tools", [])
+        tool_count = len(tools)
+
+        # Connection analysis
+        connections = server.get("connections", [])
+        conn_info = connections[0] if connections else {}
+        conn_type = conn_info.get("type", "unknown")
+        conn_url = conn_info.get("url", "N/A")
+
+        # Build comprehensive inspection panel
+        inspection_panel = Panel(
+            f"""[bold blue]SERVER INSPECTION REPORT[/bold blue]
+
+[bold purple]BASIC INFORMATION[/bold purple]
+[bold]Display Name:[/bold] {display_name}
+[bold]Qualified Name:[/bold] {q_name}
+[bold]Homepage:[/bold] [link={homepage}]{homepage}[/link]
+[bold]Description:[/bold] {description}
+
+[bold cyan]SECURITY ANALYSIS[/bold cyan]
+[bold]Security Scan:[/bold] {security_text}
+[bold]Last Updated:[/bold] {server.get('updatedAt', 'N/A')}
+
+[bold green]CAPABILITIES & TOOLS[/bold green]
+[bold]Tools Available:[/bold] {tool_count}
+[bold]Connection Type:[/bold] {conn_type.upper()}
+
+[bold yellow]CONNECTION DETAILS[/bold yellow]
+[bold]Endpoint URL:[/bold] {conn_url}
+[bold]Configuration Required:[/bold] {"Yes" if conn_info.get("configSchema") else "No"}""",
+            title=f"[inspect] {display_name} - Registry Inspection",
+            border_style="magenta",
+            padding=(1, 2)
+        )
+        self.console.print(inspection_panel)
+
+        # Display tools if available
+        if tool_count > 0:
+            await self._display_tools_details(tools, display_name)
+
+        # Display configuration schema if available
+        config_schema = conn_info.get("configSchema", {})
+        if config_schema.get("properties"):
+            self._display_config_schema(config_schema, display_name)
+
+    async def _display_tools_details(self, tools, server_name):
+        """Display detailed tools information."""
+        if len(tools) <= 5:
+            # Show all tools
+            tool_list = "\n".join(f"  {t.get('name', 'Unknown')}: {t.get('description', 'No description')}" for t in tools)
+        else:
+            # Show first 5 and summary
+            tool_list = "\n".join(f"  {t.get('name', 'Unknown')}: {t.get('description', 'No description')}" for t in tools[:5])
+            tool_list += f"\n  ... and {len(tools) - 5} more tools"
+
+        tools_panel = Panel(
+            tool_list,
+            title="[tools] Available Tools",
+            border_style="green"
+        )
+        self.console.print(tools_panel)
+
+    def _display_config_schema(self, schema, server_name):
+        """Display configuration schema for server setup."""
+        properties = schema.get("properties", {})
+
+        config_list = []
+        for key, prop in list(properties.items())[:10]:  # Limit to 10
+            prop_type = prop.get("type", "string")
+            required = "" if prop.get("default") else " [bold red](required)[/bold red]"
+            config_list.append(f"  [bold]{key}[/bold] ({prop_type}){required}")
+
+        if len(properties) > 10:
+            config_list.append(f"  ... and {len(properties) - 10} more parameters")
+
+        config_panel = Panel(
+            "\n".join(config_list) if config_list else "[dim]  No configuration parameters required[/dim]",
+            title="[config] Configuration Requirements",
+            border_style="yellow"
+        )
+        self.console.print(config_panel)
+
+    def clear_api_cache(self):
+        """Clear the Smithery API cache."""
+        self.smithery_client.clear_cache()
+        success_panel = Panel(
+            "[bold green]API cache cleared successfully![/bold green]\n\n"
+            "[dim]Next requests will fetch fresh data from Smithery registry.[/dim]",
+            title="[cache] Cache Cleared",
+            border_style="green"
+        )
+        self.console.print(success_panel)
+
+    async def configure_api_key(self):
+        """Configure Smithery API key."""
+        config_panel = Panel(
+            "[bold]Smithery API Key Configuration[/bold]\n\n"
+            "[dim]The API key is required to access the Smithery MCP server registry.\n"
+            "Get your key at: https://smithery.io[/dim]",
+            title="[api] API Key Setup",
+            border_style="yellow"
+        )
+        self.console.print(config_panel)
+
+        try:
+            api_key = await self.prompt_session.prompt_async("Enter Smithery API Key: ", is_password=True)
+
+            if api_key:
+                self.smithery_client.set_api_key(api_key, self.config_name)
+                success_panel = Panel(
+                    "[bold green]API key configured successfully![/bold green]",
+                    title="[success] API Key Set",
+                    border_style="green"
+                )
+                self.console.print(success_panel)
+            else:
+                self.console.print("[yellow]API key configuration cancelled.[/yellow]")
         except (KeyboardInterrupt, EOFError):
-            return None
+            self.console.print("\n[yellow]API key configuration cancelled.[/yellow]")
+
+    # Placeholder methods for menu options - to be implemented
+    async def view_server_categories(self):
+        """View servers organized by categories."""
+        self.console.print("[yellow]Category view not yet implemented.[/yellow]")
+        await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+
+    async def check_server_health(self):
+        """Check health status of installed servers."""
+        self.console.print("[yellow]Health check not yet implemented.[/yellow]")
+        await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+
+    async def backup_restore_configuration(self):
+        """Backup or restore configuration."""
+        self.console.print("[yellow]Backup/restore not yet implemented.[/yellow]")
+        await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+
+    async def setup_server_connectivity(self):
+        """Setup connectivity for server installations."""
+        self.console.print("[yellow]Server connectivity setup not yet implemented.[/yellow]")
+        await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+
+    def show_server_directory(self):
+        """Show information about server directory organization."""
+        import os
+
+        servers_dir = self._get_servers_base_dir()
+
+        directory_panel = Panel(
+            f"""[bold green]Server Directory Organization[/bold green]
+
+[bold]Servers Location:[/bold] {servers_dir}
+
+[bold blue]Why this organization is perfect:[/bold blue]
+Keep everything clean and organized
+Server files don't clutter your workspace
+Protect files from accidental modification
+Easy to find and manage all installed servers
+
+[bold cyan]Directory structure:[/bold cyan]
+├── mcp-server-filesystem/
+├── mcp-server-database/
+└── mcp-server-search/
+
+[dim]Tip: Use terminal commands to manage server directories[/dim]""",
+            title="Server Organization",
+            border_style="blue",
+            padding=(1, 2)
+        )
+        self.console.print(directory_panel)
+
+    def _get_servers_base_dir(self) -> str:
+        """Get the base directory for server repositories."""
+        import os
+        return os.path.join(os.path.expanduser("~"), ".ollmcp", "servers")
+
+    # Additional helper methods
+    async def _clone_server_repository(self, server_details: dict):
+        """Clone and set up a server repository."""
+        # Placeholder implementation
+        self.console.print("[yellow]Auto-cloning not implemented yet. Please clone manually.[/yellow]")
 
     def _check_docker_available(self) -> bool:
-        """Check if Docker is available on the system."""
+        """Check if Docker is available."""
         import subprocess
         try:
             result = subprocess.run(
@@ -665,721 +1080,3 @@ class MCPHubManager:
             return "Docker version" in result.stdout
         except (subprocess.CalledProcessError, FileNotFoundError):
             return False
-
-    async def _setup_server_connectivity(self, server_details: dict):
-        """Setup connectivity for a server based on its type."""
-        server_name = server_details.get("displayName", server_details.get("qualifiedName"))
-
-        connection_info = server_details.get("connections", [{}])[0]
-        conn_type = connection_info.get("type")
-        conn_url = connection_info.get("url")
-
-        if conn_type in ["http", "shttp", "sse"]:
-            # HTTP-based server
-            if not self._check_docker_available():
-                self.console.print(Panel(
-                    f"[bold yellow]⚠️  Docker Setup Required[/bold yellow]\n\n"
-                    f"Server '{server_name}' needs Docker to run.\n\n"
-                    "[bold]Install Docker:[/bold]\n"
-                    "• Ubuntu/Debian: [blue]sudo apt update && sudo apt install -y docker.io[/blue]\n"
-                    "• CentOS/RHEL: [blue]sudo yum install -y docker[/blue]\n"
-                    "• macOS: [blue]brew install docker[/blue]\n"
-                    "• Windows: Download from docker.com\n\n"
-                    "[bold]Start Docker service:[/bold]\n"
-                    "[blue]sudo systemctl start docker && sudo systemctl enable docker[/blue]",
-                    title="Docker Installation Guide", border_style="yellow"
-                ))
-                return False
-            else:
-                self.console.print(f"[green]✅ Docker is available![/green]")
-                self.console.print(Panel(
-                    f"[bold blue]🚀 Docker Execution Command[/bold blue]\n\n"
-                    f"Run this command to start the server:\n\n"
-                    f"[cyan]docker run --rm -it smithery-ai/null-server:latest[/cyan]\n\n"
-                    f"[dim]Note: This starts a temporary container. For persistent access, adjust mappings as needed.[/dim]",
-                    title=f"Starting {server_name}", border_style="blue"
-                ))
-                return True
-
-        elif conn_type == "stdio":
-            # Local script-based server
-            git_url = server_details.get("homepage", "")
-            if not git_url:
-                self.console.print(f"[red]❌ No Git URL available for {server_name}[/red]")
-                return False
-
-            self.console.print(Panel(
-                f"[bold blue]🛠️  Local Server Setup[/bold blue]\n\n"
-                f"To run '{server_name}' locally:\n\n"
-                "[bold]1. Clone the repository:[/bold]\n"
-                f"[cyan]git clone {git_url}[/cyan]\n\n"
-                "[bold]2. Install dependencies:[/bold]\n"
-                "[cyan]cd [repository-name] && npm install[/cyan]\n\n"
-                "[bold]3. Build and start:[/bold]\n"
-                "[cyan]npm run build && npm start[/cyan]\n\n"
-                "[bold]4. Configure server path:[/bold]\n"
-                "[cyan]ollmcp mcphub[/cyan] → Configure local script path",
-                title=f"Setup Guide for {server_name}", border_style="blue"
-            ))
-
-            # Check if user wants to clone automatically
-            auto_clone = await self.prompt_session.prompt_async("Would you like to clone the repository automatically? (y/N): ", is_password=False)
-            if auto_clone.lower() in ["y", "yes"]:
-                await self._clone_server_repository(server_details)
-                return True
-
-            return False
-
-        return False
-
-    async def _clone_server_repository(self, server_details: dict):
-        """Automatically clone and set up a server repository in the dedicated servers directory."""
-        import subprocess
-        import os
-
-        server_name = server_details.get("displayName", server_details.get("qualifiedName"))
-        git_url = server_details.get("homepage", "")
-
-        # Create dedicated servers directory
-        servers_base_dir = self._get_servers_base_dir()
-        os.makedirs(servers_base_dir, exist_ok=True)
-
-        self.console.print(f"[green]🎯 Clean Organization:[/green] Cloning {server_name} server...[/cyan]")
-
-        try:
-            # Extract clean repo name from Git URL
-            if git_url:
-                repo_name = git_url.split('/')[-1].replace('.git', '')
-                if not repo_name.startswith('mcp-server-'):
-                    repo_name = f"mcp-server-{repo_name}"
-            else:
-                # Clean name from qualified name
-                qualified = server_details.get("qualifiedName", "")
-                if "/" in qualified:
-                    repo_name = qualified.split("/")[-1]
-                else:
-                    repo_name = qualified
-                repo_name = f"mcp-server-{repo_name.replace('@', '').replace('/', '-')}"
-            repo_name = repo_name.replace('_', '-').lower()
-
-            # Always clone into the dedicated servers directory
-            clone_dir = os.path.join(servers_base_dir, repo_name)
-
-            if os.path.exists(clone_dir):
-                self.console.print(f"[yellow]Repository already exists at: {clone_dir}[/yellow]")
-                setup_path = await self._setup_server_repository(clone_dir, server_details)
-                if setup_path:
-                    await self._register_local_server(server_details, setup_path)
-                return
-
-            # Clone the repository
-            with self.console.status(f"Cloning {git_url}..."):
-                result = subprocess.run(
-                    ["git", "clone", git_url, clone_dir],
-                    capture_output=True,
-                    text=True,
-                    cwd=os.getcwd()
-                )
-
-                if result.returncode != 0:
-                    self.console.print(f"[red]❌ Git clone failed: {result.stderr}[/red]")
-                    return
-
-            self.console.print(f"[green]✅ Repository cloned to: {clone_dir}[/green]")
-
-            # Set up the repository
-            setup_path = await self._setup_server_repository(clone_dir, server_details)
-            if setup_path:
-                await self._register_local_server(server_details, setup_path)
-
-        except Exception as e:
-            self.console.print(f"[red]❌ Error cloning repository: {e}[/red]")
-
-    async def _setup_server_repository(self, repo_path: str, server_details: dict) -> str | None:
-        """Set up a cloned repository for use as an MCP server."""
-        import subprocess
-        import os
-
-        self.console.print(f"[cyan]Setting up repository at: {repo_path}[/cyan]")
-
-        try:
-            # Check if package.json exists (Node.js project)
-            package_json = os.path.join(repo_path, "package.json")
-            if os.path.exists(package_json):
-                self.console.print("[cyan]Installing Node.js dependencies...[/cyan]")
-                subprocess.run(["npm", "install"], cwd=repo_path, check=True, capture_output=True)
-
-                # Look for build script
-                if os.path.exists(os.path.join(repo_path, "build")):
-                    subprocess.run(["npm", "run", "build"], cwd=repo_path, check=True, capture_output=True)
-
-                # Find the main executable
-                package_data = {}
-                try:
-                    import json
-                    with open(package_json, 'r') as f:
-                        package_data = json.load(f)
-                except:
-                    pass
-
-                # Try common entry points
-                entry_points = [
-                    package_data.get("main"),
-                    "dist/index.js",
-                    "build/index.js",
-                    "index.js",
-                    "src/index.js"
-                ]
-
-                for entry in entry_points:
-                    if entry and os.path.exists(os.path.join(repo_path, entry)):
-                        full_path = os.path.join(repo_path, entry)
-                        self.console.print(f"[green]✅ Found executable: {full_path}[/green]")
-                        return full_path
-
-            self.console.print("[yellow]⚠️  Could not find main executable. Please check the repository manually.[/yellow]")
-
-        except subprocess.CalledProcessError as e:
-            self.console.print(f"[red]❌ Failed to set up repository: {e}[/red]")
-        except Exception as e:
-            self.console.print(f"[red]❌ Error setting up repository: {e}[/red]")
-
-        return None
-
-    async def _register_local_server(self, server_details: dict, script_path: str):
-        """Re-register a server with a local script path."""
-        # This would re-add the server with the local path instead of remote URL
-        self.console.print(f"[green]Server ready at: {script_path}[/green]")
-        self.console.print("[blue]You can now configure this path in MCP-HUB menu option 5 (Re-configure)[/blue]")
-
-    def _get_servers_base_dir(self) -> str:
-        """Get the base directory for server repositories."""
-        import os
-        return os.path.join(os.path.expanduser("~"), ".ollmcp", "servers")
-
-    def show_server_directory(self):
-        """Show information about the server directory organization."""
-        import os
-
-        servers_dir = self._get_servers_base_dir()
-
-        self.console.print(Panel(
-            f"[bold green]🗂️  Server Directory Organization[/bold green]\n\n"
-            f"[bold]Servers Location:[/bold] {servers_dir}\n\n"
-            f"[bold]Why this is perfect:[/bold]\n"
-            f"✨ Keeps everything clean and organized\n"
-            f"🎯 No server files clutter your workspace\n"
-            f"🛡️ Protects your files from accidental modification\n"
-            f"📍 Easy to find and manage all installed servers\n\n"
-            f"[bold cyan]Example structure in {servers_dir}:[/bold cyan]\n"
-            f"├── mcp-server-filesystem/\n"
-            f"├── mcp-server-database/\n"
-            f"└── mcp-server-search/\n\n"
-            f"[dim]Tip: Use 'find ~/.ollmcp/servers -name \"*\" -type d' to list all server directories[/dim]",
-            title="Clean Server Organization", border_style="blue"
-        ))
-
-    def clear_api_cache(self):
-        """Clears the Smithery API client's in-memory cache."""
-        self.smithery_client.clear_cache()
-        self.console.print(Panel("[bold green]API server cache has been cleared.[/bold green]"))
-
-    async def configure_api_key(self):
-        """Handles the API key configuration workflow."""
-        self.console.print("[green]Configuring Smithery API Key...[/green]")
-        try:
-            api_key = await self.prompt_session.prompt_async("Enter your Smithery API Key: ", is_password=True)
-            if api_key:
-                self.smithery_client.set_api_key(api_key, self.config_name)
-                self.console.print("[green]API Key saved successfully.[/green]")
-            else:
-                self.console.print("[yellow]API Key configuration cancelled.[/yellow]")
-        except (KeyboardInterrupt, EOFError):
-            self.console.print("\n[yellow]API Key configuration cancelled.[/yellow]")
-
-    async def check_server_health(self):
-        """Check the health status of installed servers."""
-        try:
-            installed_servers = self.config_manager.get_installed_servers(self.config_name)
-            if not installed_servers:
-                self.console.print("[yellow]No servers are currently installed.[/yellow]")
-                return
-
-            self.console.print(Panel("[bold]Checking Server Health Status[/bold]", border_style="blue"))
-
-            health_table = Table(title="Server Health Status")
-            health_table.add_column("Server", style="cyan", width=25)
-            health_table.add_column("Status", style="green", width=10)
-            health_table.add_column("Connection", style="dim", width=15)
-            health_table.add_column("Details", style="yellow")
-
-            from ..utils.connection import check_url_connectivity
-            import os
-
-            for server in installed_servers:
-                server_name = server.get("displayName", server.get("qualifiedName"))
-                connection_info = server.get("connections", [{}])
-
-                if not connection_info:
-                    health_table.add_row(server_name, "[red]Error[/red]", "None", "No connection info")
-                    continue
-
-                conn_info = connection_info[0]
-                conn_type = conn_info.get("type")
-                conn_url = conn_info.get("url")
-
-                if conn_type in ["http", "shttp", "sse"]:
-                    if conn_url:
-                        is_connected = check_url_connectivity(conn_url)
-                        status = "[green]Healthy[/green]" if is_connected else "[red]Connection Failed[/red]"
-                        conn_status = "Online" if is_connected else "Failed"
-
-                        # If connection failed, provide Docker suggestions
-                        if not is_connected:
-                            # Check if Docker is available
-                            if self._check_docker_available():
-                                details = "[blue]⚠️  Run: docker run -it smithery-ai/null-server:latest[/blue]"
-                            else:
-                                details = "[red]⚠️  Docker required. Install Docker first.[/red]"
-                        else:
-                            enabled_status = "[green]Enabled[/green]" if server.get("enabled", True) else "[dim]Disabled[/dim]"
-                            details = enabled_status
-                    else:
-                        status = "[red]Error[/red]"
-                        conn_status = "Missing URL"
-                        details = "[red]No URL configured[/red]"
-                elif conn_type == "stdio":
-                    local_path = server.get("local_script_path") or conn_info.get("path")
-                    if local_path and os.path.exists(local_path):
-                        status = "[green]Ready[/green]"
-                        conn_status = "Local File"
-                        enabled_status = "[green]Enabled[/green]" if server.get("enabled", True) else "[dim]Disabled[/dim]"
-                        details = enabled_status
-                    else:
-                        status = "[yellow]Setup Required[/yellow]"
-                        conn_status = "File Missing"
-                        git_url = server.get("homepage")
-                        if git_url:
-                            details = f"[blue]⚠️  Clone: git clone {git_url}[/blue]"
-                        else:
-                            details = "[orange]⚠️  Download repository from homepage[/orange]"
-                else:
-                    status = "[yellow]Unknown[/yellow]"
-                    conn_status = f"Type: {conn_type}"
-                    enabled_status = "[green]Enabled[/green]" if server.get("enabled", True) else "[dim]Disabled[/dim]"
-                    details = enabled_status
-
-                health_table.add_row(server_name, status, conn_status, details)
-
-            self.console.print(health_table)
-
-            # Summary
-            healthy_servers = sum(1 for s in installed_servers
-                                if s.get("enabled", True) and
-                                (s.get("connections", [{}])[0].get("url") or s.get("local_script_path")))
-
-            disabled_servers = sum(1 for s in installed_servers
-                                 if not s.get("enabled", True))
-
-            self.console.print(Panel(
-                f"[bold]Health Summary:[/bold]\n"
-                f"• {healthy_servers} servers healthy\n"
-                f"• {disabled_servers} servers disabled\n"
-                f"• {len(installed_servers)} total servers",
-                title="Summary", border_style="green"
-            ))
-
-        except Exception as e:
-            self.console.print(f"[red]Error checking server health: {e}[/red]")
-
-    async def backup_restore_configuration(self):
-        """Backup or restore server configuration."""
-        try:
-            self.console.print(Panel(
-                "[bold]Configuration Backup/Restore[/bold]\n\n"
-                "1. Backup current configuration\n"
-                "2. Restore from backup\n"
-                "3. Export servers list\n"
-                "4. Import servers from file",
-                title="Configuration Options",
-                border_style="blue"
-            ))
-
-            choice = await self.prompt_session.prompt_async("Choose an option (1-4) or press Enter to cancel: ", is_password=False)
-            if not choice or choice not in ["1", "2", "3", "4"]:
-                return
-
-            if choice == "1":
-                await self._backup_configuration()
-            elif choice == "2":
-                await self._restore_configuration()
-            elif choice == "3":
-                await self._export_servers_list()
-            elif choice == "4":
-                await self._import_servers_list()
-
-        except Exception as e:
-            self.console.print(f"[red]Error in backup/restore: {e}[/red]")
-
-    async def _backup_configuration(self):
-        """Create a backup of the current configuration."""
-        try:
-            import json
-            import datetime
-            import os
-
-            config_data = self.config_manager.load_configuration(self.config_name)
-            if not config_data.get("installed_servers"):
-                self.console.print("[yellow]No servers installed to backup.[/yellow]")
-                return
-
-            # Create backup filename with timestamp
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_dir = os.path.join(os.path.expanduser("~"), ".ollmcp_backups")
-            os.makedirs(backup_dir, exist_ok=True)
-            backup_file = os.path.join(backup_dir, f"ollmcp_backup_{self.config_name}_{timestamp}.json")
-
-            with open(backup_file, 'w') as f:
-                json.dump(config_data, f, indent=2)
-
-            self.console.print(Panel(
-                f"[green]✅ Configuration backed up successfully![/green]\n\n"
-                f"[bold]File:[/bold] {backup_file}\n"
-                f"[bold]Servers backed up:[/bold] {len(config_data.get('installed_servers', []))}\n\n"
-                f"[dim]Backup created at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
-                title="Backup Successful", border_style="green"
-            ))
-
-        except Exception as e:
-            self.console.print(f"[red]Error creating backup: {e}[/red]")
-
-    async def _restore_configuration(self):
-        """Restore configuration from a backup file."""
-        try:
-            import os
-            import json
-
-            backup_dir = os.path.join(os.path.expanduser("~"), ".ollmcp_backups")
-
-            if not os.path.exists(backup_dir):
-                self.console.print("[yellow]No backup directory found. Create a backup first.[/yellow]")
-                return
-
-            backup_files = [f for f in os.listdir(backup_dir)
-                          if f.startswith(f"ollmcp_backup_{self.config_name}") and f.endswith(".json")]
-
-            if not backup_files:
-                self.console.print(f"[yellow]No backups found for configuration '{self.config_name}'.[/yellow]")
-                return
-
-            # Sort by modification time (newest first)
-            backup_files.sort(key=lambda x: os.path.getmtime(os.path.join(backup_dir, x)), reverse=True)
-
-            self.console.print("\n[bold]Available Backups:[/bold]")
-            for i, backup_file in enumerate(backup_files[:5]):  # Show latest 5
-                mod_time = os.path.getmtime(os.path.join(backup_dir, backup_file))
-                formatted_time = datetime.datetime.fromtimestamp(mod_time).strftime("%Y-%m-%d %H:%M:%S")
-                self.console.print(f"{i+1}. {backup_file} (modified: {formatted_time})")
-
-            if len(backup_files) > 5:
-                self.console.print(f"[dim]... and {len(backup_files) - 5} more[/dim]")
-
-            choice = await self.prompt_session.prompt_async(
-                f"Enter backup number to restore (1-{min(5, len(backup_files))}) or press Enter to cancel: ",
-                is_password=False
-            )
-
-            if not choice:
-                return
-
-            try:
-                backup_index = int(choice) - 1
-                if not (0 <= backup_index < len(backup_files)):
-                    raise ValueError("Invalid index")
-
-                selected_backup = backup_files[backup_index]
-                backup_path = os.path.join(backup_dir, selected_backup)
-
-                # Confirm restoration
-                confirm = await self.prompt_session.prompt_async(
-                    f"[bold red]⚠️  This will overwrite your current configuration![/bold red]\n"
-                    f"Are you sure you want to restore from '{selected_backup}'? (y/N): ",
-                    is_password=False
-                )
-
-                if confirm.lower() not in ["y", "yes"]:
-                    self.console.print("[yellow]Restoration cancelled.[/yellow]")
-                    return
-
-                # Load and restore backup
-                with open(backup_path, 'r') as f:
-                    backup_config = json.load(f)
-
-                self.config_manager.save_configuration(backup_config, self.config_name)
-
-                servers_restored = len(backup_config.get("installed_servers", []))
-                self.console.print(Panel(
-                    f"[green]✅ Configuration restored successfully![/green]\n\n"
-                    f"[bold]Restored from:[/bold] {selected_backup}\n"
-                    f"[bold]Servers restored:[/bold] {servers_restored}\n\n"
-                    f"[dim]Configuration reloaded. Some servers may need to be reloaded.[/dim]",
-                    title="Restore Successful", border_style="green"
-                ))
-
-                # Reload servers to apply changes
-                with self.console.status("Reloading servers..."):
-                    await self.client.reload_servers()
-
-            except (ValueError, IndexError):
-                self.console.print("[red]Invalid backup number.[/red]")
-            except Exception as e:
-                self.console.print(f"[red]Error during restoration: {e}[/red]")
-
-        except Exception as e:
-            self.console.print(f"[red]Error in restore operation: {e}[/red]")
-
-    async def _export_servers_list(self):
-        """Export list of installed servers to a text file."""
-        try:
-            import json
-            import datetime
-            import os
-
-            config_data = self.config_manager.load_configuration(self.config_name)
-            installed_servers = config_data.get("installed_servers", [])
-
-            if not installed_servers:
-                self.console.print("[yellow]No servers installed to export.[/yellow]")
-                return
-
-            export_data = {
-                "export_timestamp": datetime.datetime.now().isoformat(),
-                "config_name": self.config_name,
-                "servers": []
-            }
-
-            for server in installed_servers:
-                export_server = {
-                    "qualified_name": server.get("qualifiedName"),
-                    "display_name": server.get("displayName"),
-                    "description": server.get("description", ""),
-                    "homepage": server.get("homepage"),
-                    "enabled": server.get("enabled", True),
-                    "connection_type": (server.get("connections", [{}])[0] or {}).get("type", "unknown")
-                }
-                export_data["servers"].append(export_server)
-
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            export_file = f"ollmcp_servers_export_{self.config_name}_{timestamp}.json"
-
-            with open(export_file, 'w') as f:
-                json.dump(export_data, f, indent=2)
-
-            self.console.print(Panel(
-                f"[green]✅ Server list exported successfully![/green]\n\n"
-                f"[bold]File:[/bold] {export_file}\n"
-                f"[bold]Servers exported:[/bold] {len(installed_servers)}\n\n"
-                f"[dim]Export created at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}[/dim]",
-                title="Export Successful", border_style="green"
-            ))
-
-        except Exception as e:
-            self.console.print(f"[red]Error exporting servers: {e}[/red]")
-
-    async def _import_servers_list(self):
-        """Import servers from an exported file."""
-        try:
-            import json
-
-            export_file = await self.prompt_session.prompt_async("Enter the path to the exported servers file: ", is_password=False)
-            if not export_file:
-                return
-
-            if not os.path.exists(export_file):
-                self.console.print(f"[red]File not found: {export_file}[/red]")
-                return
-
-            with open(export_file, 'r') as f:
-                import_data = json.load(f)
-
-            if "servers" not in import_data:
-                self.console.print("[red]Invalid export file format.[/red]")
-                return
-
-            servers = import_data["servers"]
-            self.console.print(f"Found {len(servers)} servers in the export file.")
-
-            # Option to import all or select specific ones
-            import_all = await self.prompt_session.prompt_async("Import all servers? (y/N): ", is_password=False)
-
-            servers_to_import = []
-            if import_all.lower() in ["y", "yes"]:
-                servers_to_import = servers
-            else:
-                # Show server list and let user select
-                self.console.print("\n[bold]Available servers to import:[/bold]")
-                for i, server in enumerate(servers):
-                    status = "[green]✓[/green]" if server.get("enabled", True) else "[red]✗[/red]"
-                    self.console.print(f"{i+1}. {status} {server.get('display_name')}")
-
-                selection = await self.prompt_session.prompt_async(
-                    f"Enter server numbers to import (supports ranges like 1-3, spaces like 1 3 5): ",
-                    is_password=False
-                )
-
-                if not selection:
-                    return
-
-                selected_indices = self._parse_server_indices(selection, len(servers))
-                servers_to_import = [servers[i] for i in selected_indices]
-
-            if not servers_to_import:
-                self.console.print("[yellow]No servers selected for import.[/yellow]")
-                return
-
-            # Fetch full server details and install them
-            imported_count = 0
-            for server in servers_to_import:
-                try:
-                    qualified_name = server.get("qualified_name")
-                    if not qualified_name:
-                        continue
-
-                    with self.console.status(f"Fetching details for {qualified_name}..."):
-                        server_details = await self.smithery_client.get_server(qualified_name)
-
-                    # Preserve enabled status from import
-                    server_details["enabled"] = server.get("enabled", True)
-
-                    # Install the server
-                    await self.add_server(server_details=server_details)
-                    imported_count += 1
-
-                except Exception as e:
-                    self.console.print(f"[red]Failed to import server '{server.get('display_name')}': {e}[/red]")
-
-            self.console.print(Panel(
-                f"[green]✅ Import completed![/green]\n\n"
-                f"[bold]Servers imported:[/bold] {imported_count}/{len(servers_to_import)}",
-                title="Import Results", border_style="green"
-            ))
-
-        except Exception as e:
-            self.console.print(f"[red]Error importing servers: {e}[/red]")
-
-    async def view_server_categories(self):
-        """View servers organized by categories within the registry."""
-        try:
-            self.console.print(Panel("Choose a category or view popular/trending servers:", title="Server Categories", border_style="blue"))
-
-            categories = [
-                ("trending", "🔥 Trending Servers"),
-                ("verified", "✓ Verified Servers"),
-                ("recent", "🆕 Recently Added"),
-                ("popular", "⭐ Popular Servers"),
-                ("filesystem", "📁 File System Tools"),
-                ("web", "🌐 Web/HTTP Servers"),
-                ("database", "🗄️ Database Tools"),
-                ("ai", "🧠 AI/ML Tools"),
-                ("search", "🔍 Search & Research"),
-                ("development", "💻 Development Tools")
-            ]
-
-            for i, (key, display) in enumerate(categories):
-                self.console.print(f"{i+1}. {display}")
-
-            choice = await self.prompt_session.prompt_async(f"Choose a category (1-{len(categories)}) or press Enter to cancel: ", is_password=False)
-            if not choice:
-                return
-
-            try:
-                category_index = int(choice) - 1
-                if not (0 <= category_index < len(categories)):
-                    raise ValueError("Invalid choice")
-
-                selected_category, display_name = categories[category_index]
-
-                # Build query based on category
-                query_parts = []
-                if selected_category == "verified":
-                    query_parts.append("is:verified")
-                elif selected_category == "trending":
-                    query_parts.append("sort:trending")
-                elif selected_category == "recent":
-                    query_parts.append("sort:recent")
-                elif selected_category == "popular":
-                    query_parts.append("sort:popular")
-                elif selected_category == "filesystem":
-                    query_parts.append("filesystem OR file OR storage")
-                elif selected_category == "web":
-                    query_parts.append("http OR web OR api")
-                elif selected_category == "database":
-                    query_parts.append("database OR sql OR mongo")
-                elif selected_category == "ai":
-                    query_parts.append("ai OR ml OR machine learning")
-                elif selected_category == "search":
-                    query_parts.append("search OR research OR query")
-                elif selected_category == "development":
-                    query_parts.append("dev OR build OR tool")
-
-                query = " ".join(query_parts)
-
-                with self.console.status(f"Searching for {display_name.lower()}..."):
-                    results = await self.smithery_client.search_servers(query)
-
-                if not results:
-                    self.console.print(f"[yellow]No {display_name.lower().replace('🔥 ', '')} found with the current search.[/yellow]")
-                    return
-
-                servers = results.get("servers", [])
-                if not servers:
-                    self.console.print("[yellow]No servers found in this category.[/yellow]")
-                    return
-
-                self.console.print(Panel(f"Found {len(servers)} {display_name.lower()}", border_style="green"))
-
-                # Display servers in this category
-                tasks = [self.smithery_client.get_server(s["qualifiedName"]) for s in servers[:10]]  # Limit to first 10
-                detailed_servers = await asyncio.gather(*tasks, return_exceptions=True)
-
-                for i, server in enumerate(detailed_servers):
-                    if isinstance(server, Exception) or not server:
-                        continue
-
-                    display_name_server = server.get("displayName", server.get("qualifiedName"))
-                    description = server.get("description", "No description available.")
-                    tool_count = str(len(server.get("tools", [])))
-
-                    card_content = f"[bold]Description:[/bold] {description}\n"
-                    card_content += f"[bold]Tools:[/bold] {tool_count}"
-
-                    panel_title = f"({i + 1}) [bold cyan]{display_name_server}[/bold cyan]"
-
-                    self.console.print(Panel(
-                        Text.from_markup(card_content),
-                        title=Text.from_markup(panel_title),
-                        border_style="blue",
-                        expand=True
-                    ))
-
-                # Prompt for installation
-                action = await self.prompt_session.prompt_async(
-                    "Enter an ID to install or press Enter to return: ",
-                    is_password=False
-                )
-
-                if action:
-                    try:
-                        server_index = int(action) - 1
-                        if 0 <= server_index < len(detailed_servers):
-                            selected_server = detailed_servers[server_index]
-                            if not isinstance(selected_server, Exception):
-                                await self.add_server(server_details=selected_server)
-                    except (ValueError, IndexError):
-                        self.console.print("[red]Invalid ID.[/red]")
-
-            except (ValueError, IndexError):
-                self.console.print("[red]Invalid choice.[/red]")
-
-        except Exception as e:
-            self.console.print(f"[red]Error viewing categories: {e}[/red]")
