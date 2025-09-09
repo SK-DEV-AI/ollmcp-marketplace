@@ -85,7 +85,7 @@ class ServerConnector:
                     "config": server.get("config", {}) # User-provided config
                 }
 
-                if conn_type == "shttp":
+                if conn_type in ["shttp", "http"]:
                     server_obj["type"] = "streamable_http"
                     server_obj["url"] = connection_info.get("url")
                 elif conn_type == "sse":
