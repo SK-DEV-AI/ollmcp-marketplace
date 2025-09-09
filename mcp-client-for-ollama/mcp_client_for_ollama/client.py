@@ -38,6 +38,7 @@ class MCPClient:
         self.ollama = ollama.AsyncClient(host=host)
         self.console = Console()
         self.config_manager = ConfigManager(self.console)
+        self.smithery_client = SmitheryClient(self.config_manager)
         # Initialize the server connector
         self.server_connector = ServerConnector(self.exit_stack, self.console, self.config_manager)
         # Initialize the model manager
@@ -510,8 +511,7 @@ class MCPClient:
                     continue
 
                 if query.lower() in ['mcphub', 'hub', 'mcp-hub']:
-                    smithery_client = SmitheryClient(self.config_manager, self.current_config_name)
-                    mcphub_manager = MCPHubManager(self.console, smithery_client, self.config_manager, self, self.current_config_name)
+                    mcphub_manager = MCPHubManager(self.console, self.smithery_client, self.config_manager, self, self.current_config_name)
                     await mcphub_manager.run()
                     # Redisplay the main menu and status after exiting the hub
                     self.clear_console()

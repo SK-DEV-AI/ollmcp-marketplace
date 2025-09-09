@@ -4,24 +4,23 @@ from ..config.manager import ConfigManager
 class SmitheryClient:
     """A client for the Smithery Registry API."""
 
-    def __init__(self, config_manager: ConfigManager, config_name: str):
+    def __init__(self, config_manager: ConfigManager):
         self.config_manager = config_manager
-        self.config_name = config_name
-        self.api_key = self.get_api_key()
+        self.api_key = None  # Will be loaded on demand
         self.base_url = "https://registry.smithery.ai"
         self.server_cache = {}
 
-    def get_api_key(self) -> str | None:
-        """Retrieves the Smithery API key from the configuration."""
-        # A specific config name might not exist yet, so we load it to check
-        config_data = self.config_manager.load_configuration(self.config_name)
-        return config_data.get("smithery_api_key")
+    def get_api_key(self, config_name: str) -> str | None:
+        """Retrieves the Smithery API key from a specific configuration."""
+        config_data = self.config_manager.load_configuration(config_name)
+        self.api_key = config_data.get("smithery_api_key")
+        return self.api_key
 
-    def set_api_key(self, api_key: str):
-        """Saves the Smithery API key to the configuration."""
-        config_data = self.config_manager.load_configuration(self.config_name)
+    def set_api_key(self, api_key: str, config_name: str):
+        """Saves the Smithery API key to a specific configuration."""
+        config_data = self.config_manager.load_configuration(config_name)
         config_data["smithery_api_key"] = api_key
-        self.config_manager.save_configuration(config_data, self.config_name)
+        self.config_manager.save_configuration(config_data, config_name)
         self.api_key = api_key
 
     async def search_servers(self, query: str = "", page: int = 1, page_size: int = 10):

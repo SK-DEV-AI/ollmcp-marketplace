@@ -519,7 +519,10 @@ class MCPHubManager:
         self.console.print("[green]Configuring Smithery API Key...[/green]")
         try:
             api_key = await self.prompt_session.prompt_async("Enter your Smithery API Key: ", is_password=True)
-            self.smithery_client.set_api_key(api_key)
-            self.console.print("[green]API Key saved successfully.[/green]")
+            if api_key:
+                self.smithery_client.set_api_key(api_key, self.config_name)
+                self.console.print("[green]API Key saved successfully.[/green]")
+            else:
+                self.console.print("[yellow]API Key configuration cancelled.[/yellow]")
         except (KeyboardInterrupt, EOFError):
             self.console.print("\n[yellow]API Key configuration cancelled.[/yellow]")
