@@ -1,3 +1,26 @@
+Metadata-Version: 2.4
+Name: mcp-client-for-ollama
+Version: 0.18.1
+Summary: MCP Client for Ollama - A client for connecting to Model Context Protocol servers using Ollama
+Author: Jonathan Löwenstern
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/jonigl/mcp-client-for-ollama
+Project-URL: Issues, https://github.com/jonigl/mcp-client-for-ollama/issues
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: mcp~=1.12.4
+Requires-Dist: ollama~=0.5.3
+Requires-Dist: prompt-toolkit~=3.0.51
+Requires-Dist: rich~=14.1.0
+Requires-Dist: typer~=0.16.0
+Requires-Dist: httpx~=0.27.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.4.1; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: respx>=0.20.0; extra == "dev"
+Dynamic: license-file
+
 <p align="center">
   <a href="https://github.com/SK-DEV-AI/ollmcp-marketplace">
     <img src="https://github.com/jonigl/mcp-client-for-ollama/blob/main/misc/ollmcp-logo-512.png?raw=true" width="256" />

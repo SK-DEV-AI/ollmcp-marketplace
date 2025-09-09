@@ -1,0 +1,3 @@
+[console_scripts]
+mcp-client-for-ollama = mcp_client_for_ollama.cli:run_cli
+ollmcp = mcp_client_for_ollama.cli:run_cli
