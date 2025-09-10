@@ -42,6 +42,23 @@ class SmitheryAuthProvider:
         """Check if credentials are available."""
         return bool(self.api_key)
 
+    def tokens(self) -> Optional[Dict[str, Any]]:
+        """Get OAuth tokens for the authentication provider.
+
+        Returns:
+            Dictionary with token information or None if not available
+        """
+        if not self.api_key:
+            return None
+
+        # Return token information in the format expected by MCP library
+        return {
+            "access_token": self.api_key,
+            "token_type": "Bearer",
+            "expires_in": None,  # Smithery doesn't specify expiration
+            "refresh_token": None  # Smithery uses persistent keys
+        }
+
 
 class AuthProviderFactory:
     """Factory class for creating authentication providers for different server types."""
