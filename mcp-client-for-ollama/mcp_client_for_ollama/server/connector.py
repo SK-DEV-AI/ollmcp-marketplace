@@ -247,7 +247,14 @@ class ServerConnector:
 
                 if is_smithery_server:
                     self.console.print(f"[cyan]🔄 Setting up OAuth provider for Smithery server[/cyan]")
-                    auth_provider = AuthProviderFactory.create_provider(url, "smithery")
+
+                    # Get API key from config manager if available
+                    api_key = None
+                    if self.config_manager:
+                        config_data = self.config_manager.load_configuration()
+                        api_key = config_data.get("smithery_api_key")
+
+                    auth_provider = AuthProviderFactory.create_provider(url, api_key, "smithery")
                     if auth_provider:
                         self.console.print(f"[green]✅ OAuth provider created for {server_name}[/green]")
                     else:
@@ -257,15 +264,10 @@ class ServerConnector:
                 headers = self._get_headers_from_server(server)
 
                 # Use the streamablehttp_client for Streamable HTTP connections
-                # Pass auth_provider if available, otherwise use headers-only authentication
-                if auth_provider:
-                    transport = await self.exit_stack.enter_async_context(
-                        streamablehttp_client(url, headers=headers, auth_provider=auth_provider)
-                    )
-                else:
-                    transport = await self.exit_stack.enter_async_context(
-                        streamablehttp_client(url, headers=headers)
-                    )
+                # Authentication is handled through headers only
+                transport = await self.exit_stack.enter_async_context(
+                    streamablehttp_client(url, headers=headers)
+                )
 
                 read_stream, write_stream, session_info = transport
                 session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
