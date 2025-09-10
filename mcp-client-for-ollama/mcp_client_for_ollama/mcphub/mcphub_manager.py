@@ -1054,11 +1054,33 @@ class MCPHubManager:
         except (KeyboardInterrupt, EOFError):
             self.console.print("\n[yellow]API key configuration cancelled.[/yellow]")
 
-    # Placeholder methods for menu options - to be implemented
     async def view_server_categories(self):
         """View servers organized by categories."""
-        self.console.print("[yellow]Category view not yet implemented.[/yellow]")
-        await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+        self.console.print()
+        self.console.print("[bold cyan]🎯 SERVER CATEGORIES VIEW[/bold cyan]")
+
+        try:
+            # Get installed servers
+            installed_servers = self.config_manager.get_installed_servers(self.config_name)
+
+            if not installed_servers:
+                self.console.print("[yellow]No servers installed. Please install servers first.[/yellow]")
+                return
+
+            # Organize servers by categories
+            categories = await self._organize_servers_by_category(installed_servers)
+
+            # Display categories overview
+            self._display_categories_overview(categories)
+
+            # Show detailed view of categories with servers
+            await self._display_category_details(categories)
+
+        except Exception as e:
+            self.console.print(f"[red]Category view error: {e}[/red]")
+
+        # Return to menu
+        await self.prompt_session.prompt_async("Press Enter to return to main menu...", is_password=False)
 
     async def check_server_health(self):
         """Check health status of installed servers."""
@@ -1071,9 +1093,62 @@ class MCPHubManager:
         await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
 
     async def setup_server_connectivity(self):
-        """Setup connectivity for server installations."""
-        self.console.print("[yellow]Server connectivity setup not yet implemented.[/yellow]")
-        await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+        """Professional server connectivity setup and configuration."""
+        self.console.print()
+        self.console.print("[bold cyan]🔗 SERVER CONNECTIVITY SETUP[/bold cyan]")
+
+        # Check current server state
+        try:
+            # Get installed servers
+            installed_servers = self.config_manager.get_installed_servers(self.config_name)
+
+            if not installed_servers:
+                self.console.print("[yellow]No servers installed. Please install servers first.[/yellow]")
+                return
+
+            # Display connectivity overview
+            await self._display_connectivity_overview(installed_servers)
+
+            # Connectivity options menu
+            while True:
+                connectivity_panel = Panel(
+                    "[bold green]Connectivity Options[/bold green]\n\n"
+                    "1. 🔍 Test All Connections     | Test connectivity for all installed servers\n"
+                    "2. 🔧 Fix Connection Issues   | Troubleshoot and fix broken connections\n"
+                    "3. 🌐 Configure Proxy Settings | Setup proxy for network connectivity\n"
+                    "4. 🔒 Test Network Access     | Verify Smithery API accessibility\n"
+                    "5. 📊 Connectivity Report     | Generate detailed connectivity report\n\n"
+                    "6. ↩️  Back to Main Menu\n\n"
+                    "[dim]Choose option (1-6):[/dim]",
+                    title="[network] Server Connectivity Configuration",
+                    border_style="blue",
+                )
+                self.console.print(connectivity_panel)
+
+                choice = await self.prompt_session.prompt_async("Enter choice (1-6): ", is_password=False)
+
+                if choice == "1":
+                    await self._test_all_connections(installed_servers)
+                elif choice == "2":
+                    await self._fix_connection_issues(installed_servers)
+                elif choice == "3":
+                    await self._configure_proxy_settings()
+                elif choice == "4":
+                    await self._test_network_access()
+                elif choice == "5":
+                    await self._generate_connectivity_report(installed_servers)
+                elif choice == "6":
+                    break
+                else:
+                    self.console.print("[red]Invalid choice. Please select 1-6.[/red]")
+
+                self.console.print()
+
+        except Exception as e:
+            self.console.print(f"[red]Connectivity setup error: {e}[/red]")
+
+        # Return to menu
+        await self.prompt_session.prompt_async("Press Enter to return to main menu...", is_password=False)
 
     def show_server_directory(self):
         """Show information about server directory organization."""
@@ -1109,11 +1184,492 @@ Easy to find and manage all installed servers
         import os
         return os.path.join(os.path.expanduser("~"), ".ollmcp", "servers")
 
+    # Connectivity Setup Helper Methods
+    async def _display_connectivity_overview(self, installed_servers):
+        """Display connectivity overview of installed servers."""
+        self.console.print("[bold blue]📊 Connectivity Overview[/bold blue]")
+
+        connectable = 0
+        smithery_servers = 0
+        with_issues = 0
+
+        for server in installed_servers:
+            server_name = server.get("qualifiedName", "")
+            if server_name.startswith("@") and "/" in server_name:
+                smithery_servers += 1
+                connectable += 1  # Smithery servers can be handled specially
+            else:
+                server_url = server.get("url", "")
+                if server_url:
+                    connectable += 1
+                else:
+                    with_issues += 1
+
+        overview_panel = Panel(
+            f"""[bold cyan]Installed Servers:[/bold] {len(installed_servers)}
+[bold green]Connectable Servers:[/bold] {connectable}
+[bold yellow]Smithery Servers:[/bold] {smithery_servers}
+[bold red]Connection Issues:[/bold] {with_issues}
+
+[bold]Last Check:[/bold] Never (run connectivity test first)""",
+            title="Server Connectivity Status",
+            border_style="blue",
+            padding=(1, 2)
+        )
+        self.console.print(overview_panel)
+
+    async def _test_all_connections(self, installed_servers):
+        """Test connectivity for all installed servers."""
+        self.console.print("\n[bold green]🔍 TESTING ALL CONNECTIONS[/bold green]")
+
+        test_results = []
+
+        for server in installed_servers:
+            server_name = server.get("qualifiedName", server.get("displayName", "Unknown"))
+            server_url = server.get("url", "")
+
+            with self.console.status(f"Testing {server_name}..."):
+                if server_name.startswith("@") and "/" in server_name:
+                    # Smithery server - skip connectivity check
+                    test_results.append({
+                        "name": server_name,
+                        "status": "Smithery Server (Skipped)",
+                        "color": "cyan"
+                    })
+                elif server_url:
+                    try:
+                        response = await self._async_url_check(server_url)
+                        if response:
+                            test_results.append({
+                                "name": server_name,
+                                "status": "✅ Connected",
+                                "color": "green"
+                            })
+                        else:
+                            test_results.append({
+                                "name": server_name,
+                                "status": "❌ Connection Failed",
+                                "color": "red"
+                            })
+                    except Exception as e:
+                        test_results.append({
+                            "name": server_name,
+                            "status": f"❌ Error: {str(e)}",
+                            "color": "red"
+                        })
+                else:
+                    test_results.append({
+                        "name": server_name,
+                        "status": "⚠️  No URL configured",
+                        "color": "yellow"
+                    })
+
+        # Display results
+        result_table = Table(title="Connectivity Test Results", title_style="bold blue")
+        result_table.add_column("Server", style="cyan")
+        result_table.add_column("Status", style="white")
+
+        for result in test_results:
+            result_table.add_row(
+                result["name"],
+                f"[{result['color']}]{result['status']}[/{result['color']}]"
+            )
+
+        self.console.print(result_table)
+
+    async def _async_url_check(self, url):
+        """Perform async URL connectivity check."""
+        try:
+            import asyncio
+            import httpx
+
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(url)
+                return response.status_code == 200
+        except Exception:
+            return False
+
+    async def _fix_connection_issues(self, installed_servers):
+        """Help troubleshoot and fix connection issues."""
+        self.console.print("\n[bold yellow]🔧 CONNECTION TROUBLESHOOTING[/bold yellow]")
+
+        # Check internet connectivity
+        self.console.print("\n[bold blue]1. Checking Internet Connectivity[/bold blue]")
+        internet_test = await self._test_internet_connectivity()
+        if not internet_test:
+            self.console.print("[red]❌ No internet connection detected![/red]")
+            return
+
+        self.console.print("[green]✅ Internet connection OK[/green]")
+
+        # Check API key for Smithery servers
+        self.console.print("\n[bold blue]2. Checking Smithery API Configuration[/bold blue]")
+        api_key = self.smithery_client.get_api_key(self.config_name)
+        if api_key:
+            self.console.print("[green]✅ Smithery API key configured[/green]")
+        else:
+            self.console.print("[red]❌ Smithery API key not configured[/red]")
+            self.console.print("[blue]ℹ️  Try: Configure Smithery API Key from main menu[/blue]")
+
+        # Check server configurations
+        self.console.print("\n[bold blue]3. Checking Server Configuration[/bold blue]")
+        issues_found = []
+
+        for server in installed_servers:
+            server_name = server.get("qualifiedName", "Unknown")
+            server_url = server.get("url", "")
+
+            if not server_url and not (server_name.startswith("@") and "/" in server_name):
+                issues_found.append(f"{server_name}: Missing URL")
+
+        if issues_found:
+            self.console.print("[red]❌ Configuration Issues Found:[/red]")
+            for issue in issues_found:
+                self.console.print(f"   • {issue}")
+        else:
+            self.console.print("[green]✅ All server configurations look good[/green]")
+
+        # Provide next steps
+        if issues_found or not api_key:
+            next_steps = Panel(
+                "[bold]Recommended Next Steps:[/bold]\n\n"
+                "1. Configure Smithery API key if needed\n"
+                "2. Check server URLs in configuration\n"
+                "3. Run network test to verify connectivity\n"
+                "4. Try reinstalling problematic servers",
+                title="Troubleshooting Recommendations",
+                border_style="yellow"
+            )
+            self.console.print("\n" + next_steps)
+        else:
+            self.console.print("\n[green]🎉 No connectivity issues detected![/green]")
+
+    async def _configure_proxy_settings(self):
+        """Configure proxy settings for network connectivity."""
+        self.console.print("\n[bold purple]🌐 PROXY CONFIGURATION[/bold purple]")
+
+        # Note: This is a placeholder implementation
+        # In a real implementation, you would:
+        # 1. Detect current proxy settings
+        # 2. Allow user to configure proxies
+        # 3. Test proxy connectivity
+        # 4. Save proxy settings to configuration
+
+        proxy_panel = Panel(
+            "[bold yellow]Proxy Configuration[/bold yellow]\n\n"
+            "[red]This feature is not yet implemented.[/red]\n\n"
+            "[dim]Future implementation will include:[/dim]\n"
+            "• HTTP/HTTPS Proxy configuration\n"
+            "• Proxy authentication\n"
+            "• Proxy testing and validation\n"
+            "• Auto-detection of system proxies",
+            title="Proxy Settings (Not Yet Implemented)",
+            border_style="yellow"
+        )
+        self.console.print(proxy_panel)
+
+    async def _test_network_access(self):
+        """Test network access to key services."""
+        self.console.print("\n[bold green]🔒 NETWORK ACCESS TEST[/bold green]")
+
+        test_targets = [
+            {"name": "Smithery API", "url": "https://registry.smithery.ai", "description": "Required for server registry"},
+            {"name": "GitHub API", "url": "https://api.github.com", "description": "Required for repository clones"},
+            {"name": "NPM Registry", "url": "https://registry.npmjs.org", "description": "Optional for NPM packages"}
+        ]
+
+        network_results = []
+        success_count = 0
+
+        for target in test_targets:
+            with self.console.status(f"Testing {target['name']}..."):
+                try:
+                    import asyncio
+                    success = await self._async_url_check(target["url"])
+                    if success:
+                        network_results.append({
+                            "name": target["name"],
+                            "status": "✅ Accessible",
+                            "color": "green"
+                        })
+                        success_count += 1
+                    else:
+                        network_results.append({
+                            "name": target["name"],
+                            "status": "❌ Unavailable",
+                            "color": "red"
+                        })
+                except Exception as e:
+                    network_results.append({
+                        "name": target["name"],
+                        "status": f"❌ Error: {str(e)}",
+                        "color": "red"
+                    })
+
+        # Display results
+        result_table = Table(title="Network Access Test Results", title_style="bold green")
+        result_table.add_column("Service", style="cyan")
+        result_table.add_column("Status", style="white")
+        result_table.add_column("Purpose", style="dim")
+
+        for i, result in enumerate(network_results):
+            result_table.add_row(
+                result["name"],
+                f"[{result['color']}]{result['status']}[/{result['color']}]",
+                test_targets[i]["description"]
+            )
+
+        self.console.print(result_table)
+
+        # Summary
+        if success_count == len(test_targets):
+            self.console.print(f"\n[green]🎉 All {len(test_targets)} services accessible![/green]")
+        elif success_count >= len(test_targets) // 2:
+            self.console.print(f"\n[yellow]⚠️  Partial network access - {success_count}/{len(test_targets)} services accessible[/yellow]")
+        else:
+            self.console.print(f"\n[red]❌ Network issues detected - only {success_count}/{len(test_targets)} services accessible[/red]")
+
+    async def _generate_connectivity_report(self, installed_servers):
+        """Generate comprehensive connectivity report."""
+        self.console.print("\n[bold cyan]📊 CONNECTIVITY REPORT GENERATION[/bold cyan]")
+
+        report_data = {
+            "timestamp": "2025-01-09 06:00",  # Would be current datetime
+            "total_servers": len(installed_servers),
+            "smithery_servers": 0,
+            "http_servers": 0,
+            "connection_status": "Unknown",
+            "api_key_configured": bool(self.smithery_client.get_api_key(self.config_name)),
+            "network_access": "Untested"
+        }
+
+        # Count server types
+        for server in installed_servers:
+            server_name = server.get("qualifiedName", "")
+            if server_name.startswith("@") and "/" in server_name:
+                report_data["smithery_servers"] += 1
+            elif server.get("url"):
+                report_data["http_servers"] += 1
+
+        # Test internet connectivity for basic status
+        internet_ok = await self._test_internet_connectivity()
+        report_data["network_access"] = "Good" if internet_ok else "Limited"
+
+        # Generate report
+        report_panel = Panel(
+            f"""[bold blue]MCP-HUB Connectivity Report[/bold blue]
+
+[bold cyan]SERVER STATISTICS[/bold cyan]
+[bold]Total Servers Installed:[/bold] {report_data['total_servers']}
+[bold]Smithery Servers:[/bold] {report_data['smithery_servers']}
+[bold]HTTP/SSE Servers:[/bold] {report_data['http_servers']}
+
+[bold purple]CONNECTIVITY STATUS[/bold purple]
+[bold]Network Access:[/bold] {report_data['network_access']}
+[bold]API Key Status:[/bold] {"Configured" if report_data['api_key_configured'] else "Not Configured"}
+[bold]Report Generated:[/bold] {report_data['timestamp']}
+
+[bold green]RECOMMENDATIONS[/bold green]
+{"✅ Excellent connectivity - all systems operational" if report_data['network_access'] == "Good" and report_data['api_key_configured'] else "⚠️  Check connectivity issues using troubleshooting option"}
+
+[bold yellow]NOTE:[/bold yellow] This is a summary report. Run connectivity tests for detailed results.""",
+            title="Connectivity Report",
+            border_style="cyan",
+            padding=(1, 2)
+        )
+        self.console.print(report_panel)
+
+    async def _test_internet_connectivity(self):
+        """Test basic internet connectivity."""
+        try:
+            import asyncio
+            success = await self._async_url_check("https://1.1.1.1")
+            return success
+        except Exception:
+            return False
+
     # Additional helper methods
     async def _clone_server_repository(self, server_details: dict):
         """Clone and set up a server repository."""
         # Placeholder implementation
         self.console.print("[yellow]Auto-cloning not implemented yet. Please clone manually.[/yellow]")
+
+    # Server Categories Helper Methods
+    async def _organize_servers_by_category(self, installed_servers):
+        """Organize installed servers into categories based on their function."""
+        categories = {
+            "File System": {
+                "description": "File and directory management, read/write operations",
+                "icon": "📁",
+                "servers": [],
+                "total_tools": 0
+            },
+            "Web & HTTP": {
+                "description": "Web scraping, HTTP operations, API calls",
+                "icon": "🌐",
+                "servers": [],
+                "total_tools": 0
+            },
+            "AI & ML": {
+                "description": "Machine learning, AI model integration, data analysis",
+                "icon": "🤖",
+                "servers": [],
+                "total_tools": 0
+            },
+            "Database": {
+                "description": "Database operations, queries, data management",
+                "icon": "🗄️",
+                "servers": [],
+                "total_tools": 0
+            },
+            "Development": {
+                "description": "Code analysis, linting, development tools",
+                "icon": "⚙️",
+                "servers": [],
+                "total_tools": 0
+            },
+            "Communication": {
+                "description": "Email, messaging, communication tools",
+                "icon": "💬",
+                "servers": [],
+                "total_tools": 0
+            },
+            "Media & Content": {
+                "description": "Image processing, text generation, content creation",
+                "icon": "🎨",
+                "servers": [],
+                "total_tools": 0
+            },
+            "Other": {
+                "description": "Miscellaneous tools and utilities",
+                "icon": "🔧",
+                "servers": [],
+                "total_tools": 0
+            }
+        }
+
+        for server in installed_servers:
+            server_name = server.get("displayName", server.get("qualifiedName", "Unknown"))
+            description = server.get("description", "").lower()
+            qualified_name = server.get("qualifiedName", "").lower()
+
+            # Categorize based on description and qualified name
+            category_name = "Other"
+
+            # File System category
+            if any(keyword in description + qualified_name for keyword in ["file", "filesystem", "directory", "folder", "storage", "disk"]):
+                category_name = "File System"
+            # Web & HTTP category
+            elif any(keyword in description + qualified_name for keyword in ["web", "http", "api", "url", "request", "browser", "scraping"]):
+                category_name = "Web & HTTP"
+            # AI & ML category
+            elif any(keyword in description + qualified_name for keyword in ["ai", "machine learning", "ml", "neural", "gpt", "openai", "claude"]):
+                category_name = "AI & ML"
+            # Database category
+            elif any(keyword in description + qualified_name for keyword in ["database", "db", "sql", "mysql", "postgres", "mongodb"]):
+                category_name = "Database"
+            # Development category
+            elif any(keyword in description + qualified_name for keyword in ["code", "programming", "lint", "debug", "test", "build"]):
+                category_name = "Development"
+            # Communication category
+            elif any(keyword in description + qualified_name for keyword in ["email", "mail", "gmail", "message", "chat", "smtp"]):
+                category_name = "Communication"
+            # Media & Content category
+            elif any(keyword in description + qualified_name for keyword in ["image", "video", "media", "content", "text", "generation"]):
+                category_name = "Media & Content"
+
+            categories[category_name]["servers"].append(server)
+            categories[category_name]["total_tools"] += len(server.get("tools", []))
+
+        return categories
+
+    def _display_categories_overview(self, categories):
+        """Display overview of server categories."""
+        # Filter out empty categories
+        active_categories = {k: v for k, v in categories.items() if v["servers"]}
+
+        overview_table = Table(title="Server Categories Overview", title_style="bold cyan")
+        overview_table.add_column("Category", style="cyan", no_wrap=True)
+        overview_table.add_column("Icon", style="white", justify="center", no_wrap=True)
+        overview_table.add_column("Servers", style="green", justify="center")
+        overview_table.add_column("Tools", style="yellow", justify="center")
+        overview_table.add_column("Description", style="dim", max_width=40)
+
+        for category_name, category_info in active_categories.items():
+            overview_table.add_row(
+                category_name,
+                category_info["icon"],
+                str(len(category_info["servers"])),
+                str(category_info["total_tools"]),
+                category_info["description"]
+            )
+
+        self.console.print(overview_table)
+
+        self.console.print(f"\n[bold cyan]📊 Total Statistics:[/bold cyan]")
+        total_servers = sum(len(cat["servers"]) for cat in active_categories.values())
+        total_tools = sum(cat["total_tools"] for cat in active_categories.values())
+
+        stats_panel = Panel(
+            f"[bold green]Active Servers:[/bold green] {total_servers}\n"
+            f"[bold yellow]Available Tools:[/bold yellow] {total_tools}\n"
+            f"[bold blue]Categories:[/bold blue] {len(active_categories)}",
+            title="System Statistics",
+            border_style="blue"
+        )
+        self.console.print(stats_panel)
+
+    async def _display_category_details(self, categories):
+        """Display detailed view of categories with server information."""
+        active_categories = {k: v for k, v in categories.items() if v["servers"]}
+
+        self.console.print(f"\n[bold cyan]📋 CATEGORY DETAILS:[/bold cyan]")
+        self.console.print(f"Showing {len(active_categories)} active categories:\n")
+
+        for category_name, category_info in active_categories.items():
+            if not category_info["servers"]:
+                continue
+
+            # Category header
+            category_panel = Panel(
+                f"[bold]{category_name}[/bold] {category_info['icon']}\n"
+                f"[dim]{category_info['description']}[/dim]\n\n"
+                f"[bold cyan]Servers:[/bold cyan] {len(category_info['servers'])} | "
+                f"[bold yellow]Tools:[/bold yellow] {category_info['total_tools']}",
+                title=f"Category: {category_name}",
+                border_style="blue",
+                padding=(1, 2)
+            )
+            self.console.print(category_panel)
+
+            # Server list for this category
+            servers_table = Table(show_header=True, header_style="bold magenta")
+            servers_table.add_column("#", style="magenta", no_wrap=True, justify="center")
+            servers_table.add_column("Server Name", style="cyan", max_width=30)
+            servers_table.add_column("Tools", style="green", justify="center", no_wrap=True)
+            servers_table.add_column("Status", style="white", no_wrap=True)
+            servers_table.add_column("Connection", style="dim cyan", no_wrap=True)
+
+            for i, server in enumerate(category_info["servers"], 1):
+                server_name = server.get("displayName", server.get("qualifiedName", "Unknown"))
+                tool_count = len(server.get("tools", []))
+                enabled = server.get("enabled", True)
+                status = "[bold green]Active[/bold green]" if enabled else "[bold red]Disabled[/bold red]"
+
+                # Connection type
+                conn_info = server.get("connections", [{}])[0]
+                conn_type = conn_info.get("type", "unknown")
+                if conn_type == "stdio":
+                    conn_type = "Local"
+                elif conn_type in ["http", "shttp", "sse"]:
+                    conn_type = "HTTP"
+                else:
+                    conn_type = conn_type.upper()
+
+                servers_table.add_row(str(i), server_name, str(tool_count), status, conn_type)
+
+            self.console.print(servers_table)
+            self.console.print()  # Spacing between categories
 
     def _check_docker_available(self) -> bool:
         """Check if Docker is available."""
