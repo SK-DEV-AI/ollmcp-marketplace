@@ -672,7 +672,11 @@ class ServerConnector:
             )
 
             # Create OAuth provider for this Smithery server
-            auth_provider = AuthProviderFactory.create_provider(server_url, "smithery")
+            api_key = server.get("api_key")
+            auth_provider = AuthProviderFactory.create_provider(server_url, api_key, "smithery")
+
+            # Store API key in server config for use in _get_headers_from_server
+            server["api_key"] = api_key
 
             if auth_provider:
                 # Check if we have existing tokens
