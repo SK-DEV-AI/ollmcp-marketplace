@@ -111,6 +111,9 @@ class ServerConnector:
                     "api_key": api_key  # Global Smithery API key for authentication
                 }
 
+                # For Smithery servers, default to streamable_http if no connection type is specified
+                is_smithery_server = server.get("qualifiedName", "").startswith("@") and "/" in server.get("qualifiedName", "")
+
                 if conn_type in ["shttp", "http"]:
                     server_obj["type"] = "streamable_http"
                     server_obj["url"] = connection_info.get(
@@ -133,6 +136,12 @@ class ServerConnector:
                             f"[yellow]Warning: stdio server '{server.get('qualifiedName')}' is configured but its local path is missing. Skipping.[/yellow]"
                         )
                         continue
+                elif is_smithery_server:
+                    # Default Smithery servers to streamable_http
+                    server_obj["type"] = "streamable_http"
+                    server_obj["url"] = connection_info.get(
+                        "url"
+                    ) or connection_info.get("deploymentUrl")
                 else:
                     self.console.print(
                         f"[yellow]Warning: Unsupported connection type '{conn_type}' for server '{server.get('qualifiedName')}'. Skipping.[/yellow]"
