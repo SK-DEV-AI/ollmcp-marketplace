@@ -1705,80 +1705,80 @@ Easy to find and manage all installed servers
     # Additional helper methods
     async def _clone_server_repository(self, server_details: dict):
         """Clone and set up a server repository."""
-        # Placeholder implementation
-        self.console.print(
-            "[yellow]Auto-cloning not implemented yet. Please clone manually.[/yellow]"
-        )
+        try:
+            # Extract repository information
+            homepage = server_details.get("homepage", "")
+            if not homepage:
+                self.console.print(
+                    "[yellow]No homepage/repository URL found. Please clone manually.[/yellow]"
+                )
+                return
 
-    # Server Categories Helper Methods
-    async def _organize_servers_by_category(self, installed_servers):
-        """Organize installed servers into categories based on their function."""
-        categories = {
-            "File System": {
-                "description": "File and directory management, read/write operations",
-                "icon": "📁",
-                "servers": [],
-                "total_tools": 0,
-            },
-            "Web & HTTP": {
-                "description": "Web scraping, HTTP operations, API calls",
-                "icon": "🌐",
-                "servers": [],
-                "total_tools": 0,
-            },
-            "AI & ML": {
-                "description": "Machine learning, AI model integration, data analysis",
-                "icon": "🤖",
-                "servers": [],
-                "total_tools": 0,
-            },
-            "Database": {
-                "description": "Database operations, queries, data management",
-                "icon": "🗄️",
-                "servers": [],
-                "total_tools": 0,
-            },
-            "Development": {
-                "description": "Code analysis, linting, development tools",
-                "icon": "⚙️",
-                "servers": [],
-                "total_tools": 0,
-            },
-            "Communication": {
-                "description": "Email, messaging, communication tools",
-                "icon": "💬",
-                "servers": [],
-                "total_tools": 0,
-            },
-            "Media & Content": {
-                "description": "Image processing, text generation, content creation",
-                "icon": "🎨",
-                "servers": [],
-                "total_tools": 0,
-            },
-            "Other": {
-                "description": "Miscellaneous tools and utilities",
-                "icon": "🔧",
-                "servers": [],
-                "total_tools": 0,
-            },
-        }
+            # Extract repository URL from homepage (typically GitHub)
+            import re
+            repo_url_match = re.search(r'https://github\.com/([^/]+/[^/]+)', homepage)
+            if not repo_url_match:
+                self.console.print(
+                    "[yellow]Could not extract GitHub repository URL. Please clone manually.[/yellow]"
+                )
+                return
 
-        for server in installed_servers:
-            server_name = server.get(
-                "displayName", server.get("qualifiedName", "Unknown")
+            repo_url = f"https://github.com/{repo_url_match.group(1)}.git"
+            server_name = server_details.get("qualifiedName", "").replace("@", "").replace("/", "-")
+
+            # Create servers directory
+            import os
+            servers_dir = os.path.join(os.path.expanduser("~"), ".ollmcp", "servers")
+            os.makedirs(servers_dir, exist_ok=True)
+
+            server_dir = os.path.join(servers_dir, server_name)
+
+            # Clone if directory doesn't exist
+            if os.path.exists(server_dir):
+                self.console.print(
+                    f"[green]Repository already exists at: {server_dir}[/green]"
+                )
+            else:
+                self.console.print(
+                    f"[cyan]Cloning repository: {repo_url}[/cyan]"
+                )
+                with self.console.status(f"Cloning {server_name}..."):
+                    clone_process = await asyncio.create_subprocess_exec(
+                        "git", "clone", repo_url, server_dir,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    stdout, stderr = await clone_process.communicate()
+
+                    if clone_process.returncode != 0:
+                        self.console.print(
+                            f"[red]Failed to clone repository: {stderr.decode()}[/red]"
+                        )
+                        return
+
+                    self.console.print(
+                        f"[green]Successfully cloned repository: {server_name}[/green]"
+                    )
+
+            # Try to find and validate executable path
+            executable_path = await self._find_server_executable_path(server_dir)
+
+            if executable_path:
+                server_details["local_script_path"] = executable_path
+                self.console.print(
+                    f"[green]Found executable at: {executable_path}[/green]"
+                )
+            else:
+                self.console.print(
+                    "[yellow]Repository cloned, but could not find executable. Please set the path manually in the prompt.[/yellow]"
+                )
+
+        except Exception as e:
+            self.console.print(
+                f"[red]Auto-clone error: {str(e)}[/red]"
             )
-            description = server.get("description", "").lower()
-            qualified_name = server.get("qualifiedName", "").lower()
-
-            # Categorize based on description and qualified name
-            category_name = "Other"
-
-            # File System category
-            if any(
-                keyword in description + qualified_name
-                for keyword in [
-                    "file",
+            self.console.print(
+                "[yellow]Falling back to manual cloning instructions.[/yellow]"
                     "filesystem",
                     "directory",
                     "folder",
@@ -1953,6 +1953,64 @@ Easy to find and manage all installed servers
 
             self.console.print(servers_table)
             self.console.print()  # Spacing between categories
+
+    async def _find_server_executable_path(self, server_dir: str) -> Optional[str]:
+        """Find the executable server path in a cloned repository."""
+        import os
+        import json
+
+        try:
+            # Look for package.json (Node.js)
+            package_json = os.path.join(server_dir, "package.json")
+            if os.path.exists(package_json):
+                try:
+                    with open(package_json, 'r', encoding='utf-8') as f:
+                        package_data = json.load(f)
+
+                    # Check for main or bin scripts
+                    main_entry = package_data.get("main") or package_data.get("bin", {}).get("main")
+                    if main_entry:
+                        main_path = os.path.join(server_dir, main_entry)
+                        if os.path.exists(main_path):
+                            return main_path
+
+                    # Common patterns for MCP servers
+                    possible_scripts = ["build/index.js", "dist/index.js", "index.js"]
+                    for script in possible_scripts:
+                        script_path = os.path.join(server_dir, script)
+                        if os.path.exists(script_path):
+                            return script_path
+
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
+
+            # Look for Python files (Python servers)
+            possible_python_files = ["main.py", "server.py", "app.py", "__main__.py"]
+            for py_file in possible_python_files:
+                py_path = os.path.join(server_dir, py_file)
+                if os.path.exists(py_path):
+                    return py_path
+
+            # Look for executable files (compiled binaries)
+            build_dirs = ["build", "dist", "target"]
+            for build_dir in build_dirs:
+                if os.path.exists(os.path.join(server_dir, build_dir)):
+                    if os.path.exists(os.path.join(server_dir, build_dir)):
+                    # Look for executable files in build directory
+                    for root, dirs, files in os.walk(os.path.join(server_dir, build_dir)):
+                        for file in files:
+                            if os.access(os.path.join(root, file), os.X_OK):
+
+            # Look for any executable file in root
+            for file in os.listdir(server_dir):
+                file_path = os.path.join(server_dir, file)
+                if os.path.isfile(file_path) and os.access(file_path, os.X_OK):
+                    return file_path
+
+        except Exception:
+            pass
+
+        return None
 
     def _check_docker_available(self) -> bool:
         """Check if Docker is available."""
