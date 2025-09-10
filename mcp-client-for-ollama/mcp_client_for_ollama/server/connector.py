@@ -151,23 +151,43 @@ class ServerConnector:
             ))
             return self.sessions, self.available_tools, self.enabled_tools
 
-        # Check all servers url connectivity
+        # Check all servers url connectivity (skip connectivity check for Smithery servers)
         servers_to_connect = []
         skipped_servers = []
         for server in all_servers:
-            if server.get("type") in ["sse", "streamable_http"]:
-                if not check_url_connectivity(server.get("url")):
-                    skipped_servers.append(server.get("name"))
+            server_name = server.get("name", "")
+            server_url = server.get("url")
+
+            # Special handling for Smithery servers - skip connectivity check
+            # Smithery servers (@owner/server-name) may not have accessible URLs
+            # or require special authentication
+            is_smithery_server = server_name.startswith("@") and "/" in server_name
+
+            if server.get("type") in ["sse", "streamable_http"] and not is_smithery_server:
+                if not server_url:
+                    self.console.print(f"[yellow]Warning: Server '{server_name}' missing URL[/yellow]")
+                    skipped_servers.append(server_name)
+                    continue
+                elif not check_url_connectivity(server_url):
+                    self.console.print(f"[yellow]Warning: Server '{server_name}' failed connectivity check[/yellow]")
+                    skipped_servers.append(server_name)
+                    continue
+            elif server.get("type") in ["sse", "streamable_http"] and is_smithery_server:
+                # For Smithery servers, show a different message and try to connect anyway
+                self.console.print(f"[cyan]🔄 Smithery server '{server_name}' - skipping connectivity check[/cyan]")
+                if not server_url:
+                    self.console.print(f"[red]Smithery server '{server_name}' missing URL, skipping[/red]")
+                    skipped_servers.append(server_name)
                     continue
             servers_to_connect.append(server)
         all_servers = servers_to_connect
 
         if skipped_servers:
             self.console.print(
-            f"[red]Skipping servers due to connectivity issues: {', '.join(skipped_servers)}[/red]"
+            f"[red]Skipping servers: {', '.join(skipped_servers)}[/red]"
             )
             self.console.print(
-            "[yellow]Servers must support HTTP or HTTPS protocols.[/yellow]"
+            "[yellow]Check server URLs and ensure servers are accessible.[/yellow]"
             )
 
         # Connect to each server
