@@ -104,9 +104,11 @@ class ServerConnector:
                 # The server object passed to _connect_to_server needs a 'name' and 'type'.
                 # The rest of the info can be in a 'config' sub-dictionary or at the top level.
                 # Let's match the structure that _connect_to_server expects.
+                api_key = self.config_manager.load_configuration().get("smithery_api_key") if self.config_manager else None
                 server_obj = {
                     "name": server.get("qualifiedName"),
                     "config": server.get("config", {}),  # User-provided config
+                    "api_key": api_key  # Global Smithery API key for authentication
                 }
 
                 if conn_type in ["shttp", "http"]:
@@ -668,44 +670,19 @@ class ServerConnector:
         if is_smithery_server:
             self.console.print(f"[cyan]Detected Smithery server: {server_name}[/cyan]")
             self.console.print(
-                f"[green]🔄 Attempting OAuth authentication for Smithery server...[/green]"
+                f"[green]🔄 Using API key authentication for Smithery server...[/green]"
             )
 
-            # Create OAuth provider for this Smithery server
+            # Use API key directly as Bearer token for Smithery authentication
             api_key = server.get("api_key")
-            auth_provider = AuthProviderFactory.create_provider(server_url, api_key, "smithery")
-
-            # Store API key in server config for use in _get_headers_from_server
-            server["api_key"] = api_key
-
-            if auth_provider:
-                # Check if we have existing tokens
-                existing_tokens = auth_provider.tokens()
-
-                if existing_tokens and existing_tokens.get("access_token"):
-                    # We have valid tokens, use them
-                    token_type = existing_tokens.get("token_type", "Bearer")
-                    access_token = existing_tokens.get("access_token")
-                    headers["Authorization"] = f"{token_type} {access_token}"
-                    self.console.print(
-                        f"[green]✅ Using cached OAuth token for {server_name}[/green]"
-                    )
-                else:
-                    # We need to perform OAuth flow
-                    self.console.print(
-                        f"[yellow]⚠️ No cached OAuth token found for {server_name}[/yellow]"
-                    )
-                    self.console.print(
-                        f"[blue]ℹ️ This server requires OAuth authentication[/blue]"
-                    )
-                    self.console.print(
-                        f"[blue]ℹ️ The MCP client will prompt for OAuth completion[/blue]"
-                    )
-                    # For now, we'll return the headers without auth and let the transport layer handle OAuth
-                    # The MCP library should trigger OAuth through the client->transport->auth provider chain
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+                self.console.print(
+                    f"[green]✅ Using API key authentication for {server_name}[/green]"
+                )
             else:
                 self.console.print(
-                    f"[red]❌ Failed to create OAuth provider for {server_name}[/red]"
+                    f"[red]❌ No API key found for Smithery server {server_name}[/red]"
                 )
         else:
             self.console.print(
