@@ -439,9 +439,29 @@ class ServerConnector:
             )
             return False
         except Exception as e:
-            self.console.print(
-                f"[red]Error connecting to {server_name}: {str(e)}[/red]"
-            )
+            error_str = str(e)
+            if "authentication" in error_str.lower() or "unauthorized" in error_str.lower() or "bearer" in error_str.lower():
+                self.console.print(
+                    f"[red]Error connecting to {server_name}: Authentication failed[/red]"
+                )
+                if "smithery" in server_name.lower() or "@" in server_name:
+                    self.console.print(
+                        "[yellow]Hint: Your Smithery API key may be invalid or expired.[/yellow]"
+                    )
+                    self.console.print(
+                        "[blue]Please update your API key at https://smithery.ai[/blue]"
+                    )
+                    self.console.print(
+                        "[blue]Then use MCP-HUB option 11 to configure the new key.[/blue]"
+                    )
+                else:
+                    self.console.print(
+                        "[yellow]Hint: Check server credentials or authentication settings.[/yellow]"
+                    )
+            else:
+                self.console.print(
+                    f"[red]Error connecting to {server_name}: {error_str}[/red]"
+                )
             return False
 
     def _create_script_params(
@@ -634,16 +654,9 @@ class ServerConnector:
         # Try to get headers directly from server dict
         headers = server.get("headers", {})
 
-        self.console.print(
-            f"[cyan]DEBUG: Initial headers from server: {headers}[/cyan]"
-        )
-
         # If not there, try the config subdict
         if not headers and "config" in server:
             headers = server["config"].get("headers", {})
-            self.console.print(
-                f"[cyan]DEBUG: Headers from config subdict: {headers}[/cyan]"
-            )
 
         # Always add MCP Protocol Version header for HTTP connections
         server_type = server.get("type", "script")
@@ -653,10 +666,6 @@ class ServerConnector:
         server_url = server.get("url")
         if not server_url and "config" in server:
             server_url = server["config"].get("url")
-
-        self.console.print(
-            f"[cyan]DEBUG: Server type: {server_type}, Server name: {server_name}[/cyan]"
-        )
 
         if server_type in ["sse", "streamable_http"]:
             headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
@@ -682,7 +691,10 @@ class ServerConnector:
                 )
             else:
                 self.console.print(
-                    f"[red]❌ No API key found for Smithery server {server_name}[/red]"
+                    f"[yellow]⚠️ No API key configured for Smithery server {server_name}[/yellow]"
+                )
+                self.console.print(
+                    f"[blue]Note: You can configure your API key later using MCP-HUB option 11[/blue]"
                 )
         else:
             self.console.print(

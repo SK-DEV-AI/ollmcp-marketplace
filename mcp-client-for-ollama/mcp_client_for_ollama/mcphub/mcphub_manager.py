@@ -52,6 +52,11 @@ class MCPHubManager:
             api_key = config_data.get("smithery_api_key")
             if api_key:
                 self.smithery_client.set_api_key(api_key)
+        elif not api_key:  # If API key is empty string, try to get it from config
+            config_data = self.config_manager.load_configuration(self.config_name)
+            api_key = config_data.get("smithery_api_key")
+            if api_key:
+                self.smithery_client.set_api_key(api_key)
 
     async def run(self):
         """Main MCP-HUB interface loop."""

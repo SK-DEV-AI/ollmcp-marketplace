@@ -354,8 +354,8 @@ class ConfigManager:
         ):
             validated["installed_servers"] = config_data["installed_servers"]
 
-        # Preserve Smithery API key
-        if "smithery_api_key" in config_data:
+        # Preserve Smithery API key if it's valid (not empty string)
+        if "smithery_api_key" in config_data and config_data["smithery_api_key"]:
             validated["smithery_api_key"] = config_data["smithery_api_key"]
 
         return validated
