@@ -3,7 +3,6 @@
 import asyncio
 import os
 from typing import List, Optional, Dict, Any
-from mcp.types import ToolCall  # Assuming ToolCall type from mcp
 from contextlib import AsyncExitStack
 from utilities import get_tool_manager
 
@@ -298,7 +297,7 @@ class MCPClient:
         model_options: Dict[str, Any] = self.model_config_manager.get_ollama_options()
 
         # Prepare chat parameters
-        chat_params: Dict[str, Any] = {
+       chat_params: Dict[str, Any] = {
             "model": model,
             "messages": messages,
             "stream": True,
@@ -315,7 +314,7 @@ class MCPClient:
 
         # Process the streaming response with thinking mode support
         response_text: str = ""
-        tool_calls: List[ToolCall] = []
+        tool_calls: List[Dict[str, Any]] = []
         response_text, tool_calls, metrics = (
             await self.streaming_manager.process_streaming_response(
                 stream,
