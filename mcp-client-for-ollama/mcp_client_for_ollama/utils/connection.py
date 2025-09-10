@@ -1,6 +1,8 @@
 """Utility to test connectivity"""
+
 import urllib.request
 import urllib.error
+
 
 def check_url_connectivity(url):
     """
@@ -11,7 +13,7 @@ def check_url_connectivity(url):
         urllib.request.urlopen(url, timeout=2)
 
         # Test POST (empty data)
-        req = urllib.request.Request(url, data=b'', method='POST')
+        req = urllib.request.Request(url, data=b"", method="POST")
         urllib.request.urlopen(req, timeout=2)
 
         return True

@@ -13,6 +13,7 @@ from rich.prompt import Prompt
 from rich.text import Text
 from rich.syntax import Syntax
 
+
 class ToolManager:
     """Manages MCP tools.
 
@@ -156,21 +157,44 @@ class ToolManager:
         if tool_texts:
             columns = Columns(tool_texts, equal=True, expand=True)
             subtitle = f"[bold]{enabled_count}/{len(self.available_tools)} tools enabled[/bold]"
-            self.console.print(Panel(columns, title="[bold]🔧 Available Tools[/bold]", subtitle=subtitle, border_style="green"))
+            self.console.print(
+                Panel(
+                    columns,
+                    title="[bold]🔧 Available Tools[/bold]",
+                    subtitle=subtitle,
+                    border_style="green",
+                )
+            )
         else:
             self.console.print("[yellow]No tools available from the server[/yellow]")
 
     # These helper methods break down the select_tools method into more manageable pieces
     def _display_tool_selection_header(self) -> None:
         """Display the tool selection header."""
-        self.console.print(Panel(Text.from_markup("[bold]🔧 Tool Selection[/bold]", justify="center"),
-                                 expand=True, border_style="green"))
-        self.console.print(Panel("[bold]Available Servers and Tools[/bold]",
-                                 border_style="blue", expand=False))
+        self.console.print(
+            Panel(
+                Text.from_markup("[bold]🔧 Tool Selection[/bold]", justify="center"),
+                expand=True,
+                border_style="green",
+            )
+        )
+        self.console.print(
+            Panel(
+                "[bold]Available Servers and Tools[/bold]",
+                border_style="blue",
+                expand=False,
+            )
+        )
 
-    def _display_server_tools(self, server_name: str, server_idx: int, server_tools: List[Tool],
-                             show_descriptions: bool, index_to_tool: Dict[int, Tool],
-                             tool_index: int) -> int:
+    def _display_server_tools(
+        self,
+        server_name: str,
+        server_idx: int,
+        server_tools: List[Tool],
+        show_descriptions: bool,
+        index_to_tool: Dict[int, Tool],
+        tool_index: int,
+    ) -> int:
         """Display tools for a specific server and update the tool index.
 
         Args:
@@ -209,7 +233,7 @@ class ToolManager:
                 tool_text = f"[magenta]{tool_index}[/magenta]. {status} {tool.name}"
 
                 # Add description if available
-                if hasattr(tool, 'description') and tool.description:
+                if hasattr(tool, "description") and tool.description:
                     # Indent description for better readability
                     description = f"\n      {tool.description}"
                     tool_text += description
@@ -222,9 +246,17 @@ class ToolManager:
 
             # Join tool texts with newlines
             panel_content = "\n".join(tool_list)
-            self.console.print(Panel(panel_content, padding=(1,1), title=panel_title,
-                                   subtitle=panel_subtitle, border_style="blue",
-                                   title_align="left", subtitle_align="right"))
+            self.console.print(
+                Panel(
+                    panel_content,
+                    padding=(1, 1),
+                    title=panel_title,
+                    subtitle=panel_subtitle,
+                    border_style="blue",
+                    title_align="left",
+                    subtitle_align="right",
+                )
+            )
         else:
             # Original columns format for when descriptions are hidden
             # Display individual tools for this server in columns
@@ -241,10 +273,20 @@ class ToolManager:
 
             # Display tools in columns inside a panel if there are any
             if server_tool_texts:
-                columns = Columns(server_tool_texts, padding=(0, 2), equal=False, expand=False)
-                self.console.print(Panel(columns, padding=(1,1), title=panel_title,
-                                     subtitle=panel_subtitle, border_style="blue",
-                                     title_align="left", subtitle_align="right"))
+                columns = Columns(
+                    server_tool_texts, padding=(0, 2), equal=False, expand=False
+                )
+                self.console.print(
+                    Panel(
+                        columns,
+                        padding=(1, 1),
+                        title=panel_title,
+                        subtitle=panel_subtitle,
+                        border_style="blue",
+                        title_align="left",
+                        subtitle_align="right",
+                    )
+                )
         return tool_index
 
     def _display_command_help(self, show_descriptions: bool) -> None:
@@ -254,17 +296,31 @@ class ToolManager:
             show_descriptions: Current state of description display
         """
         self.console.print(Panel("[bold yellow]Commands[/bold yellow]", expand=False))
-        self.console.print("• Enter [bold magenta]numbers[/bold magenta][bold yellow] separated by commas or ranges[/bold yellow] to toggle tools (e.g. [bold]1,3,5-8[/bold])")
-        self.console.print("• Enter [bold orange3]S + number[/bold orange3] to toggle all tools in a server (e.g. [bold]S1[/bold] or [bold]s2[/bold])")
+        self.console.print(
+            "• Enter [bold magenta]numbers[/bold magenta][bold yellow] separated by commas or ranges[/bold yellow] to toggle tools (e.g. [bold]1,3,5-8[/bold])"
+        )
+        self.console.print(
+            "• Enter [bold orange3]S + number[/bold orange3] to toggle all tools in a server (e.g. [bold]S1[/bold] or [bold]s2[/bold])"
+        )
         self.console.print("• [bold]a[/bold] or [bold]all[/bold] - Enable all tools")
         self.console.print("• [bold]n[/bold] or [bold]none[/bold] - Disable all tools")
-        self.console.print(f"• [bold]d[/bold] or [bold]desc[/bold] - {'Hide' if show_descriptions else 'Show'} descriptions")
-        self.console.print("• [bold]j[/bold] or [bold]json[/bold] - Show detailed tool JSON schemas on enabled tools for debugging purposes")
-        self.console.print("• [bold]s[/bold] or [bold]save[/bold] - Save changes and return")
+        self.console.print(
+            f"• [bold]d[/bold] or [bold]desc[/bold] - {'Hide' if show_descriptions else 'Show'} descriptions"
+        )
+        self.console.print(
+            "• [bold]j[/bold] or [bold]json[/bold] - Show detailed tool JSON schemas on enabled tools for debugging purposes"
+        )
+        self.console.print(
+            "• [bold]s[/bold] or [bold]save[/bold] - Save changes and return"
+        )
         self.console.print("• [bold]q[/bold] or [bold]quit[/bold] - Cancel and return")
 
-    def _process_server_toggle(self, selection: str, sorted_servers: List[Tuple[str, List[Tool]]],
-                              clear_console_func: Optional[Callable]) -> Tuple[Optional[str], str]:
+    def _process_server_toggle(
+        self,
+        selection: str,
+        sorted_servers: List[Tuple[str, List[Tool]]],
+        clear_console_func: Optional[Callable],
+    ) -> Tuple[Optional[str], str]:
         """Process a server toggle command.
 
         Args:
@@ -295,16 +351,20 @@ class ToolManager:
             # Clear console and return result message
             self._clear_console(clear_console_func)
             message = f"[{'green' if new_state else 'yellow'}]All tools in server '{server_name}' {'enabled' if new_state else 'disabled'}![/{'green' if new_state else 'yellow'}]"
-            style = 'green' if new_state else 'yellow'
+            style = "green" if new_state else "yellow"
             return message, style
         else:
             # Clear console and return error message
             self._clear_console(clear_console_func)
             message = f"[red]Invalid server number: S{server_idx+1}. Must be between S1 and S{len(sorted_servers)}[/red]"
-            return message, 'red'
+            return message, "red"
 
-    def _process_tool_selection(self, selection: str, index_to_tool: Dict[int, Tool],
-                               clear_console_func: Optional[Callable]) -> Tuple[Optional[str], str]:
+    def _process_tool_selection(
+        self,
+        selection: str,
+        index_to_tool: Dict[int, Tool],
+        clear_console_func: Optional[Callable],
+    ) -> Tuple[Optional[str], str]:
         """Process tool selection command.
 
         Args:
@@ -319,14 +379,14 @@ class ToolManager:
             valid_toggle = False
 
             # Split the input by commas to handle multiple selections
-            parts = [part.strip() for part in selection.split(',') if part.strip()]
+            parts = [part.strip() for part in selection.split(",") if part.strip()]
             selections = []
 
             for part in parts:
                 # Check if this part is a range (e.g., "5-8")
-                if '-' in part:
+                if "-" in part:
                     try:
-                        start, end = map(int, part.split('-', 1))
+                        start, end = map(int, part.split("-", 1))
                         selections.extend(range(start, end + 1))
                     except ValueError:
                         self.console.print(f"[red]Invalid range: {part}[/red]")
@@ -381,13 +441,15 @@ class ToolManager:
         # Save the original tool states in case the user cancels
         original_states = self.enabled_tools.copy()
         show_descriptions = False  # Default: don't show descriptions
-        result_message = None      # Store the result message to display in a panel
-        result_style = "green"     # Style for the result message panel
+        result_message = None  # Store the result message to display in a panel
+        result_style = "green"  # Style for the result message panel
 
         # Group tools by server
         servers = {}
         for tool in self.available_tools:
-            server_name, tool_name = tool.name.split('.', 1) if '.' in tool.name else ("default", tool.name)
+            server_name, tool_name = (
+                tool.name.split(".", 1) if "." in tool.name else ("default", tool.name)
+            )
             if server_name not in servers:
                 servers[server_name] = []
             servers[server_name].append(tool)
@@ -408,14 +470,20 @@ class ToolManager:
             # Display servers and their tools
             for server_idx, (server_name, server_tools) in enumerate(sorted_servers):
                 tool_index = self._display_server_tools(
-                    server_name, server_idx, server_tools,
-                    show_descriptions, index_to_tool, tool_index
+                    server_name,
+                    server_idx,
+                    server_tools,
+                    show_descriptions,
+                    index_to_tool,
+                    tool_index,
                 )
                 self.console.print()  # Add space between servers
 
             # Display the result message if there is one
             if result_message:
-                self.console.print(Panel(result_message, border_style=result_style, expand=False))
+                self.console.print(
+                    Panel(result_message, border_style=result_style, expand=False)
+                )
                 result_message = None  # Clear the message after displaying it
 
             # Display the command help
@@ -425,36 +493,45 @@ class ToolManager:
             selection = Prompt.ask("> ").strip().lower()
 
             # Process user commands
-            if selection in ['s', 'save']:
+            if selection in ["s", "save"]:
                 self._clear_console(clear_console_func)
                 return
 
-            if selection in ['q', 'quit']:
+            if selection in ["q", "quit"]:
                 # Restore original tool states
                 self.enabled_tools = original_states.copy()
                 self._clear_console(clear_console_func)
                 return
 
-            if selection in ['a', 'all']:
+            if selection in ["a", "all"]:
                 self.enable_all_tools()
                 self._clear_console(clear_console_func)
-                result_message, result_style = "[green]All tools enabled![/green]", "green"
+                result_message, result_style = (
+                    "[green]All tools enabled![/green]",
+                    "green",
+                )
                 continue
 
-            if selection in ['n', 'none']:
+            if selection in ["n", "none"]:
                 self.disable_all_tools()
                 self._clear_console(clear_console_func)
-                result_message, result_style = "[yellow]All tools disabled![/yellow]", "yellow"
+                result_message, result_style = (
+                    "[yellow]All tools disabled![/yellow]",
+                    "yellow",
+                )
                 continue
 
-            if selection in ['d', 'desc']:
+            if selection in ["d", "desc"]:
                 show_descriptions = not show_descriptions
                 status = "shown" if show_descriptions else "hidden"
                 self._clear_console(clear_console_func)
-                result_message, result_style = f"[blue]Tool descriptions {status}![/blue]", "blue"
+                result_message, result_style = (
+                    f"[blue]Tool descriptions {status}![/blue]",
+                    "blue",
+                )
                 continue
 
-            if selection in ['j', 'json']:
+            if selection in ["j", "json"]:
                 self._clear_console(clear_console_func)
                 self.debug_tool_schemas()
                 self.console.print("\n[dim]Press Enter to continue...[/dim]")
@@ -463,7 +540,11 @@ class ToolManager:
                 continue
 
             # Check for server toggle (S1, S2, etc.)
-            if selection.startswith('s') and len(selection) > 1 and selection[1:].isdigit():
+            if (
+                selection.startswith("s")
+                and len(selection) > 1
+                and selection[1:].isdigit()
+            ):
                 result_message, result_style = self._process_server_toggle(
                     selection, sorted_servers, clear_console_func
                 )
@@ -480,7 +561,11 @@ class ToolManager:
         Returns:
             List[Tool]: List of enabled tool objects
         """
-        return [tool for tool in self.available_tools if self.enabled_tools.get(tool.name, False)]
+        return [
+            tool
+            for tool in self.available_tools
+            if self.enabled_tools.get(tool.name, False)
+        ]
 
     def set_server_connector(self, server_connector):
         """Set the server connector to notify of tool state changes.
@@ -498,7 +583,9 @@ class ToolManager:
             self.console.print("[yellow]No tools are enabled.[/yellow]")
             return
 
-        self.console.print(Panel("[bold]🔍 Tool Schema Debug Information[/bold]", border_style="cyan"))
+        self.console.print(
+            Panel("[bold]🔍 Tool Schema Debug Information[/bold]", border_style="cyan")
+        )
 
         for tool in enabled_tools:
             # Tool header
@@ -506,25 +593,27 @@ class ToolManager:
                 f"{tool.description or 'No description'}",
                 title=f"{tool.name} Info",
                 border_style="green",
-                padding=(1, 1)
+                padding=(1, 1),
             )
             self.console.print(tool_panel)
 
             # Schema content with JSON syntax highlighting
             try:
                 schema_json = json.dumps(tool.inputSchema, indent=2)
-                syntax = Syntax(schema_json, "json", theme="monokai", line_numbers=False)
+                syntax = Syntax(
+                    schema_json, "json", theme="monokai", line_numbers=False
+                )
                 schema_panel = Panel(
                     syntax,
                     title=f"[bold orange3]{tool.name} Input Schema[bold orange3]",
-                    border_style="blue"
+                    border_style="blue",
                 )
                 self.console.print(schema_panel)
             except Exception as e:
                 error_panel = Panel(
                     f"[red]Error: {str(e)}[/red]\n[yellow]Raw: {tool.inputSchema}[/yellow]",
                     title="Schema Error",
-                    border_style="red"
+                    border_style="red",
                 )
                 self.console.print(error_panel)
 

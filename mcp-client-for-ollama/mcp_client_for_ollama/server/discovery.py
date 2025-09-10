@@ -10,6 +10,7 @@ from typing import Dict, List, Any
 from urllib.parse import urlparse
 from ..utils.constants import DEFAULT_CLAUDE_CONFIG
 
+
 def process_server_paths(server_paths) -> List[Dict[str, Any]]:
     """Process individual server script paths and validate them.
 
@@ -36,13 +37,18 @@ def process_server_paths(server_paths) -> List[Dict[str, Any]]:
             continue
 
         # Create server entry
-        all_servers.append({
-            "type": "script",
-            "path": path,
-            "name": os.path.basename(path).split('.')[0]  # Use filename without extension as name
-        })
+        all_servers.append(
+            {
+                "type": "script",
+                "path": path,
+                "name": os.path.basename(path).split(".")[
+                    0
+                ],  # Use filename without extension as name
+            }
+        )
 
     return all_servers
+
 
 def process_server_urls(server_urls) -> List[Dict[str, Any]]:
     """Process individual server URLs and create configurations for SSE/HTTP servers.
@@ -63,14 +69,14 @@ def process_server_urls(server_urls) -> List[Dict[str, Any]]:
     all_servers = []
     for url in server_urls:
         # Basic URL validation
-        if not url.startswith(('http://', 'https://')):
+        if not url.startswith(("http://", "https://")):
             continue
 
         # Extract a meaningful name from the URL
         parsed = urlparse(url)
 
         # Use hostname but replace dots and colons with underscores to avoid parsing issues
-        name = parsed.netloc.replace(':', '_').replace('.', '_')
+        name = parsed.netloc.replace(":", "_").replace(".", "_")
 
         # Determine server type based on URL patterns
         server_type = "streamable_http"  # Default to streamable_http
@@ -78,13 +84,10 @@ def process_server_urls(server_urls) -> List[Dict[str, Any]]:
             server_type = "sse"
 
         # Create server entry with clean hostname-based name
-        all_servers.append({
-            "type": server_type,
-            "url": url,
-            "name": name
-        })
+        all_servers.append({"type": server_type, "url": url, "name": name})
 
     return all_servers
+
 
 def parse_server_configs(config_path: str) -> List[Dict[str, Any]]:
     """Parse and validate server configurations from a file.
@@ -101,13 +104,13 @@ def parse_server_configs(config_path: str) -> List[Dict[str, Any]]:
         return all_servers
 
     try:
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             config = json.load(f)
-        server_configs = config.get('mcpServers', {})
+        server_configs = config.get("mcpServers", {})
 
         for name, config in server_configs.items():
             # Skip disabled servers
-            if config.get('disabled', False):
+            if config.get("disabled", False):
                 continue
 
             # Determine server type
@@ -122,11 +125,7 @@ def parse_server_configs(config_path: str) -> List[Dict[str, Any]]:
                 server_type = "streamable_http"
 
             # Create server config object
-            server = {
-                "type": server_type,
-                "name": name,
-                "config": config
-            }
+            server = {"type": server_type, "name": name, "config": config}
 
             # For URL-based servers, add direct access to URL and headers
             if server_type in ["sse", "streamable_http"]:
@@ -141,6 +140,7 @@ def parse_server_configs(config_path: str) -> List[Dict[str, Any]]:
     except Exception as e:
         # Return empty list on error
         return []
+
 
 def auto_discover_servers() -> List[Dict[str, Any]]:
     """Automatically discover available server configurations.

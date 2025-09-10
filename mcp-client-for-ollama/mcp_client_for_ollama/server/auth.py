@@ -56,7 +56,7 @@ class SmitheryAuthProvider:
             "access_token": self.api_key,
             "token_type": "Bearer",
             "expires_in": None,  # Smithery doesn't specify expiration
-            "refresh_token": None  # Smithery uses persistent keys
+            "refresh_token": None,  # Smithery uses persistent keys
         }
 
 
@@ -64,7 +64,9 @@ class AuthProviderFactory:
     """Factory class for creating authentication providers for different server types."""
 
     @staticmethod
-    def create_provider(server_url: str, api_key: Optional[str] = None, server_type: str = "auto"):
+    def create_provider(
+        server_url: str, api_key: Optional[str] = None, server_type: str = "auto"
+    ):
         """Create an authentication provider for the given server.
 
         Args:
@@ -77,7 +79,11 @@ class AuthProviderFactory:
         """
         # Auto-detect server type
         if server_type == "auto":
-            if "smithery.ai" in server_url or server_url.startswith("@") and "/" in server_url:
+            if (
+                "smithery.ai" in server_url
+                or server_url.startswith("@")
+                and "/" in server_url
+            ):
                 server_type = "smithery"
 
         if server_type == "smithery":

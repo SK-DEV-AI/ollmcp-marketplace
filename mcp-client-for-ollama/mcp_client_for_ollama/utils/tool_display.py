@@ -38,7 +38,9 @@ class ToolDisplayManager:
         # Use Rich Syntax with Monokai theme for JSON
         return Syntax(formatted_json, "json", theme="monokai", line_numbers=False)
 
-    def display_tool_execution(self, tool_name: str, tool_args: Any, show: bool = True) -> None:
+    def display_tool_execution(
+        self, tool_name: str, tool_args: Any, show: bool = True
+    ) -> None:
         """Display the tool execution panel with arguments
 
         Args:
@@ -56,15 +58,19 @@ class ToolDisplayManager:
         panel_renderable = Group(panel_content, args_display)
 
         self.console.print()  # Add a blank line before the panel
-        self.console.print(Panel(
-            panel_renderable,
-            border_style="blue",
-            title=f"[bold cyan]🔧 Executing Tool[/bold cyan] [bold yellow]{tool_name}[/bold yellow]",
-            expand=False,
-            padding=(1, 2)
-        ))
+        self.console.print(
+            Panel(
+                panel_renderable,
+                border_style="blue",
+                title=f"[bold cyan]🔧 Executing Tool[/bold cyan] [bold yellow]{tool_name}[/bold yellow]",
+                expand=False,
+                padding=(1, 2),
+            )
+        )
 
-    def display_tool_response(self, tool_name: str, tool_args: Any, tool_response: str, show: bool = True) -> None:
+    def display_tool_response(
+        self, tool_name: str, tool_args: Any, tool_response: str, show: bool = True
+    ) -> None:
         """Display the tool response panel with arguments and response
 
         Args:
@@ -84,12 +90,14 @@ class ToolDisplayManager:
             response_display = self._format_json(response_data)
             header_text = Text.from_markup("[bold]Arguments:[/bold]\n\n")
             response_header_text = Text.from_markup("\n[bold]Response:[/bold]\n\n")
-            panel_renderable = Group(header_text, args_display, response_header_text, response_display)
+            panel_renderable = Group(
+                header_text, args_display, response_header_text, response_display
+            )
 
         except (json.JSONDecodeError, TypeError, ValueError):
             # Response is not JSON - check if it has enough markdown patterns
             markdown_count = self._count_markdown_patterns(tool_response)
-            if markdown_count > 7: # Arbitrary threshold for markdown patterns
+            if markdown_count > 7:  # Arbitrary threshold for markdown patterns
                 response_display = Markdown(tool_response)
             else:
                 # Not enough markdown patterns - use plain text
@@ -97,16 +105,20 @@ class ToolDisplayManager:
 
             header_text = Text.from_markup("[bold]Arguments:[/bold]\n\n")
             response_header_text = Text.from_markup("\n[bold]Response:[/bold]\n\n")
-            panel_renderable = Group(header_text, args_display, response_header_text, response_display)
+            panel_renderable = Group(
+                header_text, args_display, response_header_text, response_display
+            )
 
         self.console.print()  # Add a blank line before the panel
-        self.console.print(Panel(
-            panel_renderable,
-            border_style="green",
-            title=f"[bold green]✅ Tool Response[/bold green] [bold yellow]{tool_name}[/bold yellow]",
-            expand=False,
-            padding=(1, 2)
-        ))
+        self.console.print(
+            Panel(
+                panel_renderable,
+                border_style="green",
+                title=f"[bold green]✅ Tool Response[/bold green] [bold yellow]{tool_name}[/bold yellow]",
+                expand=False,
+                padding=(1, 2),
+            )
+        )
         self.console.print()  # Add a blank line after the panel
 
     def _count_markdown_patterns(self, text: str) -> int:
@@ -120,16 +132,16 @@ class ToolDisplayManager:
         """
         # Common markdown patterns
         patterns = [
-            r'```\w*',  # Code blocks with language
-            r'```',     # Code blocks without language
-            r'^#{1,6}\s+',  # Headers (# ## ### etc.)
-            r'^\s*[-*+]\s+',  # Unordered lists
-            r'^\s*\d+\.\s+',  # Ordered lists
-            r'\*\*.*?\*\*',   # Bold text
-            r'\*.*?\*',       # Italic text
-            r'`.*?`',         # Inline code
-            r'^\s*>\s+',      # Blockquotes
-            r'\[.*?\]\(.*?\)',  # Links
+            r"```\w*",  # Code blocks with language
+            r"```",  # Code blocks without language
+            r"^#{1,6}\s+",  # Headers (# ## ### etc.)
+            r"^\s*[-*+]\s+",  # Unordered lists
+            r"^\s*\d+\.\s+",  # Ordered lists
+            r"\*\*.*?\*\*",  # Bold text
+            r"\*.*?\*",  # Italic text
+            r"`.*?`",  # Inline code
+            r"^\s*>\s+",  # Blockquotes
+            r"\[.*?\]\(.*?\)",  # Links
         ]
 
         count = 0

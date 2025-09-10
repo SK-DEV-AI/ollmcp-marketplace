@@ -6,6 +6,7 @@ import urllib.request
 from mcp_client_for_ollama import __version__
 from .constants import PYPI_PACKAGE_URL
 
+
 def check_for_updates():
     """Check if a newer version of the package is available on PyPI.
 
@@ -22,7 +23,7 @@ def check_for_updates():
             # Compare versions (treating them as tuples of integers)
             def parse_version(version_str):
                 # Extract numbers from version string (handles formats like 0.1.11)
-                return tuple(map(int, re.findall(r'\d+', version_str)))
+                return tuple(map(int, re.findall(r"\d+", version_str)))
 
             current_parsed = parse_version(current_version)
             latest_parsed = parse_version(latest_version)

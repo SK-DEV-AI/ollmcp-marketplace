@@ -38,3 +38,18 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "respx>=0.20.0",
 ]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=0.23.0",
+    "respx>=0.20.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --strict-markers"
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"

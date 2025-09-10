@@ -160,6 +160,90 @@ Run with default settings, which will automatically discover servers from Claude
 ollmcp
 ```
 
+### Quick Start with MCP-HUB
+
+The **MCP-HUB** provides a comprehensive server management interface. Access it by typing `hub` or `mcphub` in the main chat prompt:
+
+```bash
+ollmcp
+# Then in the chat prompt type:
+hub
+```
+
+### MCP-HUB Shell Commands
+
+Once in the MCP-HUB, you can use these shell command patterns for server management:
+
+**Server Installation:**
+```bash
+# Search and install from registry
+ollmcp
+# Type 'hub' → Option 1 → Search for 'file' → Install server
+
+# Direct installation via command line
+ollmcp -s ~/.ollmcp/servers/mcp-server-filesystem/index.js -m llama3.1
+```
+
+**Server Management Commands:**
+```bash
+# Install Node.js dependencies globally
+npm install -g @modelcontextprotocol/server-filesystem
+
+# Clone server repositories
+git clone https://github.com/modelcontextprotocol/server-filesystem.git ~/.ollmcp/servers/mcp-filesystem
+
+# Install Node.js project dependencies
+cd ~/.ollmcp/servers/mcp-filesystem && npm install
+
+# Build and run a server
+cd ~/.ollmcp/servers/mcp-filesystem && npm run build && npm start
+
+# Check server directory structure
+ls -la ~/.ollmcp/servers/
+
+# Remove server files
+rm -rf ~/.ollmcp/servers/mcp-server-old
+
+# Check Docker availability
+docker --version
+
+# Run Docker-based servers
+docker run --rm -p 3000:3000 mcp-server-web-search:latest
+
+# Enable/disable servers (may require config reload)
+ollmcp --reload-servers
+```
+
+**Docker Server Setup:**
+```bash
+# Check Docker status
+systemctl status docker
+
+# Start Docker service
+sudo systemctl start docker
+
+# Enable Docker on boot
+sudo systemctl enable docker
+
+# Run Smithery servers
+docker run --rm -it smithery-io/server-filesystem:latest
+```
+
+**Directory Management:**
+```bash
+# Search for server directories
+find ~/.ollmcp/servers -name "*server*" -type d
+
+# List installed server directories
+ls -la ~/.ollmcp/servers/
+
+# Check configuration files
+cat ~/.config/ollmcp/config.json
+
+# Backup configurations
+cp ~/.config/ollmcp/config.json ~/.config/ollmcp/backup-$(date +%Y%m%d).json
+```
+
 ### Command-line Arguments
 
 The CLI uses `Typer` for a modern experience with grouped options and shell autocompletion. To install autocompletion, run `ollmcp --install-completion` and restart your shell.
@@ -170,14 +254,44 @@ The CLI uses `Typer` for a modern experience with grouped options and shell auto
 
 ### Usage Examples
 
-Connect to a single local server:
+**Basic Usage:**
 ```bash
-ollmcp -s /path/to/weather.py -m llama3.1
+# Start with default settings
+ollmcp
+
+# Connect to a single local server
+ollmcp -s ~/.ollmcp/servers/mcp-filesystem/index.js -m llama3.1
+
+# Connect to a remote MCP server
+ollmcp -u http://localhost:8000/mcp -m qwen3
+
+# Auto-discover Claude's MCP servers
+ollmcp -a -m llama3.2
+
+# Use named configuration profile
+ollmcp -c my-project-config -m mistral-large
 ```
 
-Connect to a remote server and use a named configuration:
+**Advanced Configuration:**
 ```bash
-ollmcp -u http://localhost:8000/mcp -m qwen3 && lc my-config
+# Multiple servers with configuration
+ollmcp -s ~/.ollmcp/servers/mcp-filesystem/index.js \
+       -s ~/.ollmcp/servers/mcp-web-search/dist/index.js \
+       -m qwen2.5:72b \
+       --max-tokens 8192 \
+       --temperature 0.1
+
+# Remote server with authentication
+ollmcp -u wss://mcp-server.cloud/mcp \
+       --auth-token "your-token-here" \
+       -m deepseek-r1 \
+       -H http://localhost:11435
+
+# Development mode with debug logging
+ollmcp --debug \
+       --verbose \
+       -m llama3.1:8b \
+       -s ./mcp-servers/weather-server/index.js
 ```
 
 ## Interactive Commands

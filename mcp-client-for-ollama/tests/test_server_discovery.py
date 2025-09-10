@@ -16,7 +16,7 @@ def test_process_server_urls():
     urls = [
         "http://localhost:8000/sse",
         "https://api.example.com/mcp",
-        "http://server1.com:9000/streamable"
+        "http://server1.com:9000/streamable",
     ]
     result = process_server_urls(urls)
     assert len(result) == 3
@@ -68,7 +68,7 @@ def test_server_name_uniqueness():
     urls = [
         "http://server1.com/sse",
         "http://server2.com/sse",
-        "https://api.example.com:8000/sse"
+        "https://api.example.com:8000/sse",
     ]
     result = process_server_urls(urls)
     assert len(result) == 3
@@ -83,10 +83,7 @@ def test_server_name_uniqueness():
 def test_same_host_different_types():
     """Test that same host with different server types can coexist."""
     # Note: This creates a name collision but is rare in practice
-    urls = [
-        "http://localhost:8000/sse",
-        "http://localhost:8000/mcp"
-    ]
+    urls = ["http://localhost:8000/sse", "http://localhost:8000/mcp"]
     result = process_server_urls(urls)
     assert len(result) == 2
 
@@ -105,7 +102,9 @@ def test_ip_address_name_generation():
 
     # Test tool name parsing with the generated name
     tool_name = f"{result[0]['name']}.hello_world"
-    server_name, actual_tool_name = tool_name.split('.', 1) if '.' in tool_name else (None, tool_name)
+    server_name, actual_tool_name = (
+        tool_name.split(".", 1) if "." in tool_name else (None, tool_name)
+    )
 
     assert server_name == "127_0_0_1_8000"
     assert actual_tool_name == "hello_world"

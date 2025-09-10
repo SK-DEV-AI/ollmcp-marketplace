@@ -30,11 +30,15 @@ class HumanInTheLoopManager:
         if self.is_enabled():
             self.set_enabled(False)
             self.console.print("[yellow]🤖 HIL confirmations disabled[/yellow]")
-            self.console.print("[dim]Tool calls will proceed automatically without confirmation.[/dim]")
+            self.console.print(
+                "[dim]Tool calls will proceed automatically without confirmation.[/dim]"
+            )
         else:
             self.set_enabled(True)
             self.console.print("[green]🧑‍💻 HIL confirmations enabled[/green]")
-            self.console.print("[dim]You will be prompted to confirm each tool call.[/dim]")
+            self.console.print(
+                "[dim]You will be prompted to confirm each tool call.[/dim]"
+            )
 
     def set_enabled(self, enabled: bool) -> None:
         """Set HIL enabled state (used when loading from config)"""
@@ -55,7 +59,9 @@ class HumanInTheLoopManager:
         if not self.is_enabled():
             return True, False  # Execute if HIL is disabled
 
-        self.console.print("\n[bold yellow]🧑‍💻 Human-in-the-Loop Confirmation[/bold yellow]")
+        self.console.print(
+            "\n[bold yellow]🧑‍💻 Human-in-the-Loop Confirmation[/bold yellow]"
+        )
 
         # Show tool information
         self.console.print(f"[cyan]Tool to execute:[/cyan] [bold]{tool_name}[/bold]")
@@ -81,7 +87,7 @@ class HumanInTheLoopManager:
             "[bold]What would you like to do?[/bold]",
             choices=["y", "yes", "n", "no", "disable"],
             default="y",
-            show_choices=False
+            show_choices=False,
         ).lower()
 
         return self._handle_user_choice(choice)
@@ -91,7 +97,9 @@ class HumanInTheLoopManager:
         self.console.print("[bold cyan]Options:[/bold cyan]")
         self.console.print("  [green]y/yes[/green] - Execute the tool call")
         self.console.print("  [red]n/no[/red] - Skip this tool call")
-        self.console.print("  [yellow]disable[/yellow] - Disable HIL confirmations permanently")
+        self.console.print(
+            "  [yellow]disable[/yellow] - Disable HIL confirmations permanently"
+        )
         self.console.print()
 
     def _handle_user_choice(self, choice: str) -> bool:
@@ -107,13 +115,15 @@ class HumanInTheLoopManager:
         if choice == "disable":
             self.toggle()  # Disable HIL
 
-            self.console.print("[dim]You can re-enable this with the command: human-in-loop or hil[/dim]")
+            self.console.print(
+                "[dim]You can re-enable this with the command: human-in-loop or hil[/dim]"
+            )
 
             # Ask about current tool call
             execute_current = Prompt.ask(
                 "[bold]Execute this current tool call?[/bold]",
                 choices=["y", "yes", "n", "no"],
-                default="y"
+                default="y",
             ).lower()
 
             should_execute = execute_current in ["y", "yes"]
@@ -121,9 +131,13 @@ class HumanInTheLoopManager:
 
         elif choice in ["n", "no"]:
             self.console.print("[yellow]⏭️  Tool call skipped[/yellow]")
-            self.console.print("[dim]Tip: Use 'human-in-loop' or 'hil' to disable these confirmations permanently[/dim]")
+            self.console.print(
+                "[dim]Tip: Use 'human-in-loop' or 'hil' to disable these confirmations permanently[/dim]"
+            )
             return False
 
         else:  # y/yes
-            self.console.print("[dim]Tip: Use 'human-in-loop' or 'hil' to disable these confirmations[/dim]")
+            self.console.print(
+                "[dim]Tip: Use 'human-in-loop' or 'hil' to disable these confirmations[/dim]"
+            )
             return True

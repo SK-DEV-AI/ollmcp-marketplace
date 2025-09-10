@@ -14,6 +14,8 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
 from prompt_toolkit import PromptSession
+from typing import Optional
+from typing import Optional
 
 from .smithery_client import SmitheryClient
 from ..config.manager import ConfigManager
@@ -22,44 +24,61 @@ from ..config.manager import ConfigManager
 class MCPHubManager:
     """Professional MCP Server Management with Enterprise Features."""
 
-    def __init__(self, console: Console, smithery_client: SmitheryClient, config_manager: ConfigManager, client, config_name: str):
+    def __init__(
+        self,
+        console: Console,
+        smithery_client: SmitheryClient,
+        config_manager: ConfigManager,
+        client,
+        config_name: str,
+        prompt_session: Optional[PromptSession] = None,
+    ):
+        print(f"MCPHubManager __init__ called with config_name={config_name}")
         self.console = console
         self.smithery_client = smithery_client
         self.config_manager = config_manager
         self.client = client
         self.config_name = config_name
-        self.prompt_session = PromptSession()
+        self.prompt_session = prompt_session or PromptSession()
 
         # Initialize API key from configuration
         self._initialize_api_key()
 
     def _initialize_api_key(self):
         """Initialize Smithery API key from current configuration."""
-        if self.smithery_client.get_api_key(self.config_name) is None:
+        api_key = self.smithery_client.get_api_key()
+        if api_key is None:
             config_data = self.config_manager.load_configuration(self.config_name)
             api_key = config_data.get("smithery_api_key")
             if api_key:
-                self.smithery_client.set_api_key(api_key, self.config_name)
+                self.smithery_client.set_api_key(api_key)
 
     async def run(self):
         """Main MCP-HUB interface loop."""
         welcome_message = Panel(
-            Text("Welcome to MCP-HUB - Professional MCP Server Manager!", justify="center"),
-            border_style="green"
+            Text(
+                "Welcome to MCP-HUB - Professional MCP Server Manager!",
+                justify="center",
+            ),
+            border_style="green",
         )
         self.console.print(welcome_message)
 
         while True:
             try:
                 self.display_menu()
-                choice = await self.prompt_session.prompt_async("Select option: ", is_password=False)
+                choice = await self.prompt_session.prompt_async(
+                    "Select option: ", is_password=False
+                )
 
                 await self._handle_menu_choice(choice)
                 if choice in ["14", "q", "quit"]:
                     break
 
             except (KeyboardInterrupt, EOFError):
-                self.console.print("\n[yellow]Operation cancelled. Back to menu.[/yellow]")
+                self.console.print(
+                    "\n[yellow]Operation cancelled. Back to menu.[/yellow]"
+                )
                 continue
             except Exception as e:
                 self.console.print(f"[red]Unexpected error: {e}[/red]")
@@ -98,7 +117,7 @@ class MCPHubManager:
             Text.from_markup(menu_content),
             title="[bold white]MCP-HUB Professional Edition[/bold white]",
             border_style="blue",
-            padding=(1, 2)
+            padding=(1, 2),
         )
         self.console.print(menu_panel)
 
@@ -125,8 +144,13 @@ class MCPHubManager:
         if choice in menu_actions:
             try:
                 await menu_actions[choice]()
-                if choice in ["12", "13"]:  # Synchronous methods that need user confirmation
-                    await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+                if choice in [
+                    "12",
+                    "13",
+                ]:  # Synchronous methods that need user confirmation
+                    await self.prompt_session.prompt_async(
+                        "Press Enter to continue...", is_password=False
+                    )
             except Exception as e:
                 self.console.print(f"[red]Error executing option {choice}: {e}[/red]")
         elif choice in ["14", "q", "quit"]:
@@ -141,11 +165,13 @@ class MCPHubManager:
                 search_panel = Panel(
                     "[dim]Tip: Use filters like 'owner:username', 'is:verified', 'filesystem', etc.[/dim]",
                     title="[search] Advanced Server Search[/search]",
-                    border_style="blue"
+                    border_style="blue",
                 )
                 self.console.print(search_panel)
 
-                query = await self.prompt_session.prompt_async("Enter search query: ", is_password=False)
+                query = await self.prompt_session.prompt_async(
+                    "Enter search query: ", is_password=False
+                )
                 if not query.strip():
                     continue
 
@@ -153,7 +179,9 @@ class MCPHubManager:
                     results = await self.smithery_client.search_servers(query)
 
                 if not results or not results.get("servers"):
-                    self.console.print("[yellow]No servers found. Try different keywords or visit smithery.io[/yellow]")
+                    self.console.print(
+                        "[yellow]No servers found. Try different keywords or visit smithery.io[/yellow]"
+                    )
                     continue
 
                 servers = results["servers"]
@@ -161,7 +189,9 @@ class MCPHubManager:
 
                 # Fetch detailed server information
                 with self.console.status("Getting server details..."):
-                    detailed_servers = await self._fetch_server_details(servers[:10])  # Limit to 10
+                    detailed_servers = await self._fetch_server_details(
+                        servers[:10]
+                    )  # Limit to 10
 
                 # Display server cards
                 self._display_server_cards(detailed_servers)
@@ -169,12 +199,12 @@ class MCPHubManager:
                 # Interactive installation workflow
                 action = await self.prompt_session.prompt_async(
                     "Enter server ID to install, (s)earch again, or (q)uit: ",
-                    is_password=False
+                    is_password=False,
                 )
 
-                if action.lower() == 'q':
+                if action.lower() == "q":
                     break
-                elif action.lower() == 's':
+                elif action.lower() == "s":
                     continue
 
                 await self._handle_server_installation(detailed_servers, action)
@@ -215,7 +245,9 @@ class MCPHubManager:
                 if not server or not isinstance(server, dict):
                     continue
 
-                display_name = server.get("displayName", server.get("qualifiedName", "Unknown Server"))
+                display_name = server.get(
+                    "displayName", server.get("qualifiedName", "Unknown Server")
+                )
                 if not display_name:
                     continue
 
@@ -233,10 +265,18 @@ class MCPHubManager:
                 homepage = server.get("homepage", "")
 
                 security_info = server.get("security", {})
-                security_passed = security_info.get("scanPassed", False) if isinstance(security_info, dict) else False
+                security_passed = (
+                    security_info.get("scanPassed", False)
+                    if isinstance(security_info, dict)
+                    else False
+                )
 
                 # Security indicator
-                security_text = "[bold green]Secure[/bold green]" if security_passed else "[bold red]Unverified[/bold red]"
+                security_text = (
+                    "[bold green]Secure[/bold green]"
+                    if security_passed
+                    else "[bold red]Unverified[/bold red]"
+                )
 
                 card_content = f"""[bold]Description:[/bold] {description[:100]}{"..." if len(description) > 100 else ""}
 [bold]Tools:[/bold] {tool_count} | [bold]Security:[/bold] {security_text}
@@ -247,7 +287,7 @@ class MCPHubManager:
                     title=f"[bold cyan]({index + 1}) {display_name}[/bold cyan]\n[dim]{q_name}[/dim]",
                     border_style="blue",
                     padding=(1, 2),
-                    expand=True
+                    expand=True,
                 )
                 self.console.print(server_panel)
                 valid_servers_count += 1
@@ -257,13 +297,17 @@ class MCPHubManager:
                 continue
             except Exception as e:
                 # For debugging - but don't break the UI
-                self.console.print(f"[dim gray]Skipping malformed server {index + 1}: {e}[/dim gray]")
+                self.console.print(
+                    f"[dim gray]Skipping malformed server {index + 1}: {e}[/dim gray]"
+                )
                 continue
 
         if valid_servers_count == 0:
             self.console.print("[yellow]No valid servers found to display.[/yellow]")
         elif valid_servers_count < len(servers_data):
-            self.console.print(f"[dim]Displayed {valid_servers_count} of {len(servers_data)} servers (some had invalid data)[/dim]")
+            self.console.print(
+                f"[dim]Displayed {valid_servers_count} of {len(servers_data)} servers (some had invalid data)[/dim]"
+            )
 
     async def _handle_server_installation(self, servers_data, action):
         """Handle server installation workflow."""
@@ -283,6 +327,14 @@ class MCPHubManager:
 
         except (ValueError, IndexError):
             self.console.print("[red]Invalid input. Enter a valid server ID.[/red]")
+
+    async def install_server(self):
+        """Install a server (alias for add_server for compatibility)."""
+        await self.add_server()
+
+    async def install_server(self):
+        """Install a server (alias for add_server for compatibility)."""
+        await self.add_server()
 
     async def add_server(self, server_details=None):
         """Professional server installation with smart configuration."""
@@ -305,7 +357,9 @@ class MCPHubManager:
 
             # Check if already installed
             if self._is_server_installed(server_name):
-                self.console.print(f"[yellow]{display_name} is already installed.[/yellow]")
+                self.console.print(
+                    f"[yellow]{display_name} is already installed.[/yellow]"
+                )
                 return
 
             # Display server preview
@@ -320,7 +374,9 @@ class MCPHubManager:
                 return
 
             # Finalize installation
-            await self._finalize_server_installation(server_details, config, display_name)
+            await self._finalize_server_installation(
+                server_details, config, display_name
+            )
 
         except Exception as e:
             error_type = type(e).__name__
@@ -338,7 +394,11 @@ class MCPHubManager:
         tool_count = len(server_details.get("tools", []))
         security_passed = server_details.get("security", {}).get("scanPassed", False)
 
-        security_text = "[bold green]Verified[/bold green]" if security_passed else "[bold red]Unverified[/bold red]"
+        security_text = (
+            "[bold green]Verified[/bold green]"
+            if security_passed
+            else "[bold red]Unverified[/bold red]"
+        )
 
         preview_panel = Panel(
             f"[bold]Name:[/bold] {display_name}\n"
@@ -346,7 +406,7 @@ class MCPHubManager:
             f"[bold]Security:[/bold] {security_text}\n"
             f"[bold]Available Tools:[/bold] {tool_count}",
             title="[install] Server Preview",
-            border_style="green"
+            border_style="green",
         )
         self.console.print(preview_panel)
 
@@ -362,7 +422,9 @@ class MCPHubManager:
 
     async def _handle_stdio_installation(self, server_details):
         """Handle stdio server installation."""
-        display_name = server_details.get("displayName", server_details.get("qualifiedName"))
+        display_name = server_details.get(
+            "displayName", server_details.get("qualifiedName")
+        )
 
         installation_panel = Panel(
             f"[bold yellow]This is a Local Server[/bold yellow]\n\n"
@@ -372,7 +434,7 @@ class MCPHubManager:
             f"3. Build: npm run build && npm start\n\n"
             "Enter the absolute path to the server's executable script below.",
             title=f"{display_name} Setup",
-            border_style="yellow"
+            border_style="yellow",
         )
         self.console.print(installation_panel)
 
@@ -380,7 +442,7 @@ class MCPHubManager:
             "Auto-clone repository? (Y/n): ", is_password=False
         )
 
-        if auto_clone.lower() != 'n':
+        if auto_clone.lower() != "n":
             await self._clone_server_repository(server_details)
         else:
             local_path = await self.prompt_session.prompt_async(
@@ -397,6 +459,7 @@ class MCPHubManager:
     def _validate_local_path(self, path):
         """Validate local file path."""
         import os
+
         if os.path.exists(path):
             self.console.print(f"[green]Path validated: {path}[/green]")
             return True
@@ -414,7 +477,7 @@ class MCPHubManager:
         config_panel = Panel(
             "Configure server parameters:",
             title="Server Configuration",
-            border_style="yellow"
+            border_style="yellow",
         )
         self.console.print(config_panel)
 
@@ -460,7 +523,9 @@ class MCPHubManager:
     async def _get_numeric_config(self, prompt_text, prop_type, default):
         """Get numeric configuration value."""
         while True:
-            value = await self.prompt_session.prompt_async(f"{prompt_text}: ", is_password=False)
+            value = await self.prompt_session.prompt_async(
+                f"{prompt_text}: ", is_password=False
+            )
             if not value and default is not None:
                 return default
             try:
@@ -470,7 +535,9 @@ class MCPHubManager:
 
     async def _get_string_config(self, prompt_text, default):
         """Get string configuration value."""
-        value = await self.prompt_session.prompt_async(f"{prompt_text}: ", is_password=False)
+        value = await self.prompt_session.prompt_async(
+            f"{prompt_text}: ", is_password=False
+        )
         return value if value else default
 
     async def _finalize_server_installation(self, server_details, config, display_name):
@@ -492,7 +559,7 @@ class MCPHubManager:
 [bold]Configuration:[/bold]
 {self._format_config_summary(config)}""",
             title="Server Successfully Installed",
-            border_style="green"
+            border_style="green",
         )
         self.console.print(success_panel)
 
@@ -514,8 +581,11 @@ class MCPHubManager:
 
     async def uninstall_server(self):
         """Uninstall servers with bulk operations support."""
+        print("uninstall_server called, parsing selection and performing uninstall")
         try:
-            installed_servers = self.config_manager.get_installed_servers(self.config_name)
+            installed_servers = self.config_manager.get_installed_servers(
+                self.config_name
+            )
             if not installed_servers:
                 self.console.print("[yellow]No servers installed.[/yellow]")
                 return
@@ -523,23 +593,31 @@ class MCPHubManager:
             # Display server table
             self._display_uninstall_table(installed_servers)
 
+            print("About to call prompt for selection in uninstall_server")
             # Get user selection
             selection = await self.prompt_session.prompt_async(
                 "Enter server ID(s) (ranges like 1-3, individual like 1 3 5, or Enter to cancel): ",
-                is_password=False
+                is_password=False,
             )
+            print(f"Got selection: '{selection}'")
 
             if not selection:
+                print("Selection is empty, returning from uninstall_server")
                 return
 
+            print("Calling _parse_server_indices in uninstall_server")
             # Parse selection
-            server_indices = self._parse_server_indices(selection, len(installed_servers))
+            server_indices = self._parse_server_indices(
+                selection, len(installed_servers)
+            )
             if not server_indices:
                 self.console.print("[red]No valid servers selected.[/red]")
                 return
 
             # Confirm uninstallation
-            if not await self._confirm_uninstallation(server_indices, installed_servers):
+            if not await self._confirm_uninstallation(
+                server_indices, installed_servers
+            ):
                 return
 
             # Perform uninstallation
@@ -558,22 +636,35 @@ class MCPHubManager:
         table.add_column("Status", style="green")
 
         for i, server in enumerate(servers):
-            status = "[bold green]Enabled[/bold green]" if server.get("enabled", True) else "[bold red]Disabled[/bold red]"
-            table.add_row(str(i + 1), server.get('displayName'), server.get('qualifiedName'), status)
+            status = (
+                "[bold green]Enabled[/bold green]"
+                if server.get("enabled", True)
+                else "[bold red]Disabled[/bold red]"
+            )
+            table.add_row(
+                str(i + 1),
+                server.get("displayName"),
+                server.get("qualifiedName"),
+                status,
+            )
 
         self.console.print(table)
 
     async def _confirm_uninstallation(self, indices, servers):
         """Confirm server uninstallation."""
-        selected_servers = [servers[i].get('displayName', servers[i].get('qualifiedName')) for i in indices]
+        selected_servers = [
+            servers[i].get("displayName", servers[i].get("qualifiedName"))
+            for i in indices
+        ]
 
         confirm_panel = Panel(
             f"[bold red]Confirm Uninstallation[/bold red]\n\n"
-            f"[bold]Servers to remove:[/bold]\n" +
-            "\n".join(f"  {name}" for name in selected_servers) + "\n\n" +
-            "[bold yellow]This action cannot be undone![/bold yellow]",
+            f"[bold]Servers to remove:[/bold]\n"
+            + "\n".join(f"  {name}" for name in selected_servers)
+            + "\n\n"
+            + "[bold yellow]This action cannot be undone![/bold yellow]",
             title="Confirmation Required",
-            border_style="red"
+            border_style="red",
         )
         self.console.print(confirm_panel)
 
@@ -589,22 +680,21 @@ class MCPHubManager:
 
         for server_index in sorted(indices, reverse=True):
             server_to_remove = servers[server_index]
-            server_name = server_to_remove.get("qualifiedName", server_to_remove.get("displayName"))
+            server_name = server_to_remove.get("qualifiedName")
             removed_servers.append(server_name)
-            servers.pop(server_index)
+            self.config_manager.remove_installed_server(server_name, self.config_name)
 
-        # Update configuration
-        config_data = self.config_manager.load_configuration(self.config_name)
-        config_data["installed_servers"] = servers
-        self.config_manager.save_configuration(config_data, self.config_name)
+        # No need to update config_data since remove_installed_server already saves
+        # Reload the client
+        await self.client.reload_servers()
 
         # Display results
         result_panel = Panel(
             f"[bold green]Uninstallation Complete[/bold green]\n\n"
-            f"[bold]Removed:[/bold] {len(removed_servers)} server(s)\n" +
-            "\n".join(f"  {name}" for name in removed_servers),
+            f"[bold]Removed:[/bold] {len(removed_servers)} server(s)\n"
+            + "\n".join(f"  {name}" for name in removed_servers),
             title="Servers Removed",
-            border_style="green"
+            border_style="green",
         )
         self.console.print(result_panel)
 
@@ -614,14 +704,18 @@ class MCPHubManager:
 
     def _parse_server_indices(self, input_str: str, max_index: int) -> list:
         """Parse server selection with support for ranges and individual IDs."""
+        print(
+            f"_parse_server_indices called with input_str='{input_str}', max_index={max_index}"
+        )
         indices = set()
 
         parts = input_str.strip().split()
+        print(f"Parsed parts: {parts}")
         for part in parts:
-            if '-' in part:
+            if "-" in part:
                 # Range handling
                 try:
-                    start, end = map(int, part.split('-'))
+                    start, end = map(int, part.split("-"))
                     if 1 <= start <= end <= max_index:
                         indices.update(range(start - 1, end))
                     else:
@@ -632,13 +726,18 @@ class MCPHubManager:
                 # Individual ID
                 try:
                     server_index = int(part) - 1
+                    print(
+                        f"Processing individual ID: part='{part}', server_index={server_index}, max_index={max_index}"
+                    )
                     if 0 <= server_index < max_index:
                         indices.add(server_index)
+                        print(f"Added index {server_index} to indices")
                     else:
                         self.console.print(f"[yellow]ID out of range: {part}[/yellow]")
                 except ValueError:
                     self.console.print(f"[yellow]Invalid ID: {part}[/yellow]")
 
+        print(f"Final indices: {sorted(list(indices))}")
         return sorted(list(indices))
 
     async def view_installed_servers(self):
@@ -671,17 +770,25 @@ class MCPHubManager:
         table.add_column("Type", style="dim cyan", no_wrap=True)
 
         for i, server in enumerate(servers):
-            display_name = server.get('displayName', server.get('qualifiedName', 'Unknown'))
+            display_name = server.get(
+                "displayName", server.get("qualifiedName", "Unknown")
+            )
             tool_count = str(len(server.get("tools", [])))
 
-            status = "[bold green]Active[/bold green]" if server.get("enabled", True) else "[bold red]Disabled[/bold red]"
+            status = (
+                "[bold green]Active[/bold green]"
+                if server.get("enabled", True)
+                else "[bold red]Disabled[/bold red]"
+            )
 
-            conn_type = (server.get("connections", [{}])[0] or {}).get("type", "unknown")
+            conn_type = (server.get("connections", [{}])[0] or {}).get(
+                "type", "unknown"
+            )
             type_display = {
                 "stdio": "LOCAL",
                 "http": "HTTP",
                 "shttp": "HTTPS",
-                "sse": "STREAM"
+                "sse": "STREAM",
             }.get(conn_type, conn_type.upper())
 
             table.add_row(str(i + 1), display_name, tool_count, status, type_display)
@@ -696,23 +803,23 @@ class MCPHubManager:
                 server = servers[server_index]
 
                 # Build comprehensive server card
-                display_name = server.get('displayName')
-                q_name = server.get('qualifiedName')
-                description = server.get('description', 'No description available.')
-                homepage = server.get('homepage', '')
+                display_name = server.get("displayName")
+                q_name = server.get("qualifiedName")
+                description = server.get("description", "No description available.")
+                homepage = server.get("homepage", "")
 
                 # Configuration summary
-                config = server.get('config', {})
+                config = server.get("config", {})
                 config_count = len(config)
 
                 # Tools summary
-                tools = server.get('tools', [])
-                tool_names = [t.get('name', 'Unknown') for t in tools[:5]]
+                tools = server.get("tools", [])
+                tool_names = [t.get("name", "Unknown") for t in tools[:5]]
                 if len(tools) > 5:
                     tool_names.append(f"... and {len(tools) - 5} more")
 
                 # Connection info
-                conn_info = (server.get("connections", [{}])[0] or {})
+                conn_info = server.get("connections", [{}])[0] or {}
                 conn_type = conn_info.get("type", "unknown")
                 conn_url = conn_info.get("url", "N/A")
 
@@ -736,7 +843,7 @@ class MCPHubManager:
 [bold]Homepage:[/bold] [link={homepage}]{homepage}[/link]""",
                     title=f"[details] {display_name} Details",
                     border_style="cyan",
-                    padding=(1, 2)
+                    padding=(1, 2),
                 )
                 self.console.print(details_panel)
 
@@ -745,7 +852,7 @@ class MCPHubManager:
                     config_panel = Panel(
                         "\n".join(f"[bold]{k}:[/bold] {v}" for k, v in config.items()),
                         title="Configuration Details",
-                        border_style="yellow"
+                        border_style="yellow",
                     )
                     self.console.print(config_panel)
             else:
@@ -755,8 +862,11 @@ class MCPHubManager:
 
     async def toggle_server_enabled_status(self):
         """Toggle server enabled/disabled status."""
+        print("toggle_server_enabled_status called, toggling servers and saving config")
         try:
-            installed_servers = self.config_manager.get_installed_servers(self.config_name)
+            installed_servers = self.config_manager.get_installed_servers(
+                self.config_name
+            )
             if not installed_servers:
                 self.console.print("[yellow]No servers to toggle.[/yellow]")
                 return
@@ -769,22 +879,32 @@ class MCPHubManager:
             table.add_column("Current Status", style="bold white")
 
             for i, server in enumerate(installed_servers):
-                status = "[bold green]ENABLED[/bold green]" if server.get("enabled", True) else "[bold red]DISABLED[/bold red]"
-                table.add_row(str(i + 1), server.get('displayName'), status)
+                status = (
+                    "[bold green]ENABLED[/bold green]"
+                    if server.get("enabled", True)
+                    else "[bold red]DISABLED[/bold red]"
+                )
+                table.add_row(str(i + 1), server.get("displayName"), status)
 
             self.console.print(table)
 
+            print("About to call prompt for selection in toggle_server_enabled_status")
             # Get user selection
             selection = await self.prompt_session.prompt_async(
                 "Enter server ID(s) (ranges like 1-3, individual like 1 3 5, or Enter to cancel): ",
-                is_password=False
+                is_password=False,
             )
+            print(f"Got selection: '{selection}'")
 
             if not selection:
+                print("Selection is empty, returning from toggle_server_enabled_status")
                 return
 
+            print("Calling _parse_server_indices in toggle_server_enabled_status")
             # Parse and validate selection
-            server_indices = self._parse_server_indices(selection, len(installed_servers))
+            server_indices = self._parse_server_indices(
+                selection, len(installed_servers)
+            )
             if not server_indices:
                 self.console.print("[red]No valid servers selected.[/red]")
                 return
@@ -796,7 +916,11 @@ class MCPHubManager:
                 old_status = server.get("enabled", True)
                 server["enabled"] = not old_status
 
-                status_text = "[bold green]ENABLED[/bold green]" if not old_status else "[bold red]DISABLED[/bold red]"
+                status_text = (
+                    "[bold green]ENABLED[/bold green]"
+                    if not old_status
+                    else "[bold red]DISABLED[/bold red]"
+                )
                 toggled_servers.append(f"{server.get('displayName')} -> {status_text}")
 
             # Save updated configuration
@@ -806,10 +930,10 @@ class MCPHubManager:
 
             # Display results
             result_panel = Panel(
-                f"[bold green]Server Status Updated[/bold green]\n\n" +
-                "\n".join(f"  {server}" for server in toggled_servers),
+                f"[bold green]Server Status Updated[/bold green]\n\n"
+                + "\n".join(f"  {server}" for server in toggled_servers),
                 title="Status Changes",
-                border_style="green"
+                border_style="green",
             )
             self.console.print(result_panel)
 
@@ -823,7 +947,9 @@ class MCPHubManager:
     async def reconfigure_server(self):
         """Reconfigure an installed server's parameters."""
         try:
-            installed_servers = self.config_manager.get_installed_servers(self.config_name)
+            installed_servers = self.config_manager.get_installed_servers(
+                self.config_name
+            )
             if not installed_servers:
                 self.console.print("[yellow]No servers to reconfigure.[/yellow]")
                 return
@@ -837,7 +963,7 @@ class MCPHubManager:
 
             for i, server in enumerate(installed_servers):
                 has_config = "Yes" if server.get("config") else "No"
-                table.add_row(str(i + 1), server.get('displayName'), has_config)
+                table.add_row(str(i + 1), server.get("displayName"), has_config)
 
             self.console.print(table)
 
@@ -855,9 +981,13 @@ class MCPHubManager:
                     raise ValueError()
 
                 selected_server = installed_servers[server_index]
-                server_name = selected_server.get("displayName", selected_server.get("qualifiedName"))
+                server_name = selected_server.get(
+                    "displayName", selected_server.get("qualifiedName")
+                )
 
-                self.console.print(f"\n[bold cyan]Reconfiguring: {server_name}[/bold cyan]")
+                self.console.print(
+                    f"\n[bold cyan]Reconfiguring: {server_name}[/bold cyan]"
+                )
 
                 # Fetch latest server details
                 with self.console.status("Getting latest server information..."):
@@ -884,7 +1014,7 @@ class MCPHubManager:
                     f"[bold]Server:[/bold] {server_name}\n"
                     f"[bold]Parameters Updated:[/bold] {len(new_config) if new_config else 0}",
                     title="Server Reconfigured",
-                    border_style="green"
+                    border_style="green",
                 )
                 self.console.print(success_panel)
 
@@ -916,7 +1046,9 @@ class MCPHubManager:
 
         except Exception as e:
             if "API key is not set" in str(e):
-                self.console.print("[bold yellow]API key required. Please configure Smithery API key first.[/bold yellow]")
+                self.console.print(
+                    "[bold yellow]API key required. Please configure Smithery API key first.[/bold yellow]"
+                )
                 await self.configure_api_key()
             else:
                 self.console.print(f"[red]Inspection error: {e}[/red]")
@@ -931,7 +1063,11 @@ class MCPHubManager:
         # Security and installation info
         security_info = server.get("security", {})
         security_passed = security_info.get("scanPassed", False)
-        security_text = "[bold green]VERIFIED[/bold green]" if security_passed else "[bold red]UNVERIFIED[/bold red]"
+        security_text = (
+            "[bold green]VERIFIED[/bold green]"
+            if security_passed
+            else "[bold red]UNVERIFIED[/bold red]"
+        )
 
         # Tools analysis
         tools = server.get("tools", [])
@@ -966,7 +1102,7 @@ class MCPHubManager:
 [bold]Configuration Required:[/bold] {"Yes" if conn_info.get("configSchema") else "No"}""",
             title=f"[inspect] {display_name} - Registry Inspection",
             border_style="magenta",
-            padding=(1, 2)
+            padding=(1, 2),
         )
         self.console.print(inspection_panel)
 
@@ -983,16 +1119,20 @@ class MCPHubManager:
         """Display detailed tools information."""
         if len(tools) <= 5:
             # Show all tools
-            tool_list = "\n".join(f"  {t.get('name', 'Unknown')}: {t.get('description', 'No description')}" for t in tools)
+            tool_list = "\n".join(
+                f"  {t.get('name', 'Unknown')}: {t.get('description', 'No description')}"
+                for t in tools
+            )
         else:
             # Show first 5 and summary
-            tool_list = "\n".join(f"  {t.get('name', 'Unknown')}: {t.get('description', 'No description')}" for t in tools[:5])
+            tool_list = "\n".join(
+                f"  {t.get('name', 'Unknown')}: {t.get('description', 'No description')}"
+                for t in tools[:5]
+            )
             tool_list += f"\n  ... and {len(tools) - 5} more tools"
 
         tools_panel = Panel(
-            tool_list,
-            title="[tools] Available Tools",
-            border_style="green"
+            tool_list, title="[tools] Available Tools", border_style="green"
         )
         self.console.print(tools_panel)
 
@@ -1010,9 +1150,13 @@ class MCPHubManager:
             config_list.append(f"  ... and {len(properties) - 10} more parameters")
 
         config_panel = Panel(
-            "\n".join(config_list) if config_list else "[dim]  No configuration parameters required[/dim]",
+            (
+                "\n".join(config_list)
+                if config_list
+                else "[dim]  No configuration parameters required[/dim]"
+            ),
             title="[config] Configuration Requirements",
-            border_style="yellow"
+            border_style="yellow",
         )
         self.console.print(config_panel)
 
@@ -1023,7 +1167,7 @@ class MCPHubManager:
             "[bold green]API cache cleared successfully![/bold green]\n\n"
             "[dim]Next requests will fetch fresh data from Smithery registry.[/dim]",
             title="[cache] Cache Cleared",
-            border_style="green"
+            border_style="green",
         )
         self.console.print(success_panel)
 
@@ -1034,19 +1178,21 @@ class MCPHubManager:
             "[dim]The API key is required to access the Smithery MCP server registry.\n"
             "Get your key at: https://smithery.io[/dim]",
             title="[api] API Key Setup",
-            border_style="yellow"
+            border_style="yellow",
         )
         self.console.print(config_panel)
 
         try:
-            api_key = await self.prompt_session.prompt_async("Enter Smithery API Key: ", is_password=True)
+            api_key = await self.prompt_session.prompt_async(
+                "Enter Smithery API Key: ", is_password=True
+            )
 
             if api_key:
                 self.smithery_client.set_api_key(api_key, self.config_name)
                 success_panel = Panel(
                     "[bold green]API key configured successfully![/bold green]",
                     title="[success] API Key Set",
-                    border_style="green"
+                    border_style="green",
                 )
                 self.console.print(success_panel)
             else:
@@ -1061,10 +1207,14 @@ class MCPHubManager:
 
         try:
             # Get installed servers
-            installed_servers = self.config_manager.get_installed_servers(self.config_name)
+            installed_servers = self.config_manager.get_installed_servers(
+                self.config_name
+            )
 
             if not installed_servers:
-                self.console.print("[yellow]No servers installed. Please install servers first.[/yellow]")
+                self.console.print(
+                    "[yellow]No servers installed. Please install servers first.[/yellow]"
+                )
                 return
 
             # Organize servers by categories
@@ -1080,17 +1230,23 @@ class MCPHubManager:
             self.console.print(f"[red]Category view error: {e}[/red]")
 
         # Return to menu
-        await self.prompt_session.prompt_async("Press Enter to return to main menu...", is_password=False)
+        await self.prompt_session.prompt_async(
+            "Press Enter to return to main menu...", is_password=False
+        )
 
     async def check_server_health(self):
         """Check health status of installed servers."""
         self.console.print("[yellow]Health check not yet implemented.[/yellow]")
-        await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+        await self.prompt_session.prompt_async(
+            "Press Enter to continue...", is_password=False
+        )
 
     async def backup_restore_configuration(self):
         """Backup or restore configuration."""
         self.console.print("[yellow]Backup/restore not yet implemented.[/yellow]")
-        await self.prompt_session.prompt_async("Press Enter to continue...", is_password=False)
+        await self.prompt_session.prompt_async(
+            "Press Enter to continue...", is_password=False
+        )
 
     async def setup_server_connectivity(self):
         """Professional server connectivity setup and configuration."""
@@ -1100,10 +1256,14 @@ class MCPHubManager:
         # Check current server state
         try:
             # Get installed servers
-            installed_servers = self.config_manager.get_installed_servers(self.config_name)
+            installed_servers = self.config_manager.get_installed_servers(
+                self.config_name
+            )
 
             if not installed_servers:
-                self.console.print("[yellow]No servers installed. Please install servers first.[/yellow]")
+                self.console.print(
+                    "[yellow]No servers installed. Please install servers first.[/yellow]"
+                )
                 return
 
             # Display connectivity overview
@@ -1125,7 +1285,9 @@ class MCPHubManager:
                 )
                 self.console.print(connectivity_panel)
 
-                choice = await self.prompt_session.prompt_async("Enter choice (1-6): ", is_password=False)
+                choice = await self.prompt_session.prompt_async(
+                    "Enter choice (1-6): ", is_password=False
+                )
 
                 if choice == "1":
                     await self._test_all_connections(installed_servers)
@@ -1148,7 +1310,9 @@ class MCPHubManager:
             self.console.print(f"[red]Connectivity setup error: {e}[/red]")
 
         # Return to menu
-        await self.prompt_session.prompt_async("Press Enter to return to main menu...", is_password=False)
+        await self.prompt_session.prompt_async(
+            "Press Enter to return to main menu...", is_password=False
+        )
 
     def show_server_directory(self):
         """Show information about server directory organization."""
@@ -1175,13 +1339,14 @@ Easy to find and manage all installed servers
 [dim]Tip: Use terminal commands to manage server directories[/dim]""",
             title="Server Organization",
             border_style="blue",
-            padding=(1, 2)
+            padding=(1, 2),
         )
         self.console.print(directory_panel)
 
     def _get_servers_base_dir(self) -> str:
         """Get the base directory for server repositories."""
         import os
+
         return os.path.join(os.path.expanduser("~"), ".ollmcp", "servers")
 
     # Connectivity Setup Helper Methods
@@ -1214,7 +1379,7 @@ Easy to find and manage all installed servers
 [bold]Last Check:[/bold] Never (run connectivity test first)""",
             title="Server Connectivity Status",
             border_style="blue",
-            padding=(1, 2)
+            padding=(1, 2),
         )
         self.console.print(overview_panel)
 
@@ -1225,44 +1390,56 @@ Easy to find and manage all installed servers
         test_results = []
 
         for server in installed_servers:
-            server_name = server.get("qualifiedName", server.get("displayName", "Unknown"))
+            server_name = server.get(
+                "qualifiedName", server.get("displayName", "Unknown")
+            )
             server_url = server.get("url", "")
 
             with self.console.status(f"Testing {server_name}..."):
                 if server_name.startswith("@") and "/" in server_name:
                     # Smithery server - skip connectivity check
-                    test_results.append({
-                        "name": server_name,
-                        "status": "Smithery Server (Skipped)",
-                        "color": "cyan"
-                    })
+                    test_results.append(
+                        {
+                            "name": server_name,
+                            "status": "Smithery Server (Skipped)",
+                            "color": "cyan",
+                        }
+                    )
                 elif server_url:
                     try:
                         response = await self._async_url_check(server_url)
                         if response:
-                            test_results.append({
-                                "name": server_name,
-                                "status": "✅ Connected",
-                                "color": "green"
-                            })
+                            test_results.append(
+                                {
+                                    "name": server_name,
+                                    "status": "✅ Connected",
+                                    "color": "green",
+                                }
+                            )
                         else:
-                            test_results.append({
-                                "name": server_name,
-                                "status": "❌ Connection Failed",
-                                "color": "red"
-                            })
+                            test_results.append(
+                                {
+                                    "name": server_name,
+                                    "status": "❌ Connection Failed",
+                                    "color": "red",
+                                }
+                            )
                     except Exception as e:
-                        test_results.append({
-                            "name": server_name,
-                            "status": f"❌ Error: {str(e)}",
-                            "color": "red"
-                        })
+                        test_results.append(
+                            {
+                                "name": server_name,
+                                "status": f"❌ Error: {str(e)}",
+                                "color": "red",
+                            }
+                        )
                 else:
-                    test_results.append({
-                        "name": server_name,
-                        "status": "⚠️  No URL configured",
-                        "color": "yellow"
-                    })
+                    test_results.append(
+                        {
+                            "name": server_name,
+                            "status": "⚠️  No URL configured",
+                            "color": "yellow",
+                        }
+                    )
 
         # Display results
         result_table = Table(title="Connectivity Test Results", title_style="bold blue")
@@ -1272,7 +1449,7 @@ Easy to find and manage all installed servers
         for result in test_results:
             result_table.add_row(
                 result["name"],
-                f"[{result['color']}]{result['status']}[/{result['color']}]"
+                f"[{result['color']}]{result['status']}[/{result['color']}]",
             )
 
         self.console.print(result_table)
@@ -1303,13 +1480,17 @@ Easy to find and manage all installed servers
         self.console.print("[green]✅ Internet connection OK[/green]")
 
         # Check API key for Smithery servers
-        self.console.print("\n[bold blue]2. Checking Smithery API Configuration[/bold blue]")
+        self.console.print(
+            "\n[bold blue]2. Checking Smithery API Configuration[/bold blue]"
+        )
         api_key = self.smithery_client.get_api_key(self.config_name)
         if api_key:
             self.console.print("[green]✅ Smithery API key configured[/green]")
         else:
             self.console.print("[red]❌ Smithery API key not configured[/red]")
-            self.console.print("[blue]ℹ️  Try: Configure Smithery API Key from main menu[/blue]")
+            self.console.print(
+                "[blue]ℹ️  Try: Configure Smithery API Key from main menu[/blue]"
+            )
 
         # Check server configurations
         self.console.print("\n[bold blue]3. Checking Server Configuration[/bold blue]")
@@ -1319,7 +1500,9 @@ Easy to find and manage all installed servers
             server_name = server.get("qualifiedName", "Unknown")
             server_url = server.get("url", "")
 
-            if not server_url and not (server_name.startswith("@") and "/" in server_name):
+            if not server_url and not (
+                server_name.startswith("@") and "/" in server_name
+            ):
                 issues_found.append(f"{server_name}: Missing URL")
 
         if issues_found:
@@ -1338,7 +1521,7 @@ Easy to find and manage all installed servers
                 "3. Run network test to verify connectivity\n"
                 "4. Try reinstalling problematic servers",
                 title="Troubleshooting Recommendations",
-                border_style="yellow"
+                border_style="yellow",
             )
             self.console.print("\n" + next_steps)
         else:
@@ -1364,7 +1547,7 @@ Easy to find and manage all installed servers
             "• Proxy testing and validation\n"
             "• Auto-detection of system proxies",
             title="Proxy Settings (Not Yet Implemented)",
-            border_style="yellow"
+            border_style="yellow",
         )
         self.console.print(proxy_panel)
 
@@ -1373,9 +1556,21 @@ Easy to find and manage all installed servers
         self.console.print("\n[bold green]🔒 NETWORK ACCESS TEST[/bold green]")
 
         test_targets = [
-            {"name": "Smithery API", "url": "https://registry.smithery.ai", "description": "Required for server registry"},
-            {"name": "GitHub API", "url": "https://api.github.com", "description": "Required for repository clones"},
-            {"name": "NPM Registry", "url": "https://registry.npmjs.org", "description": "Optional for NPM packages"}
+            {
+                "name": "Smithery API",
+                "url": "https://registry.smithery.ai",
+                "description": "Required for server registry",
+            },
+            {
+                "name": "GitHub API",
+                "url": "https://api.github.com",
+                "description": "Required for repository clones",
+            },
+            {
+                "name": "NPM Registry",
+                "url": "https://registry.npmjs.org",
+                "description": "Optional for NPM packages",
+            },
         ]
 
         network_results = []
@@ -1385,29 +1580,38 @@ Easy to find and manage all installed servers
             with self.console.status(f"Testing {target['name']}..."):
                 try:
                     import asyncio
+
                     success = await self._async_url_check(target["url"])
                     if success:
-                        network_results.append({
-                            "name": target["name"],
-                            "status": "✅ Accessible",
-                            "color": "green"
-                        })
+                        network_results.append(
+                            {
+                                "name": target["name"],
+                                "status": "✅ Accessible",
+                                "color": "green",
+                            }
+                        )
                         success_count += 1
                     else:
-                        network_results.append({
-                            "name": target["name"],
-                            "status": "❌ Unavailable",
-                            "color": "red"
-                        })
+                        network_results.append(
+                            {
+                                "name": target["name"],
+                                "status": "❌ Unavailable",
+                                "color": "red",
+                            }
+                        )
                 except Exception as e:
-                    network_results.append({
-                        "name": target["name"],
-                        "status": f"❌ Error: {str(e)}",
-                        "color": "red"
-                    })
+                    network_results.append(
+                        {
+                            "name": target["name"],
+                            "status": f"❌ Error: {str(e)}",
+                            "color": "red",
+                        }
+                    )
 
         # Display results
-        result_table = Table(title="Network Access Test Results", title_style="bold green")
+        result_table = Table(
+            title="Network Access Test Results", title_style="bold green"
+        )
         result_table.add_column("Service", style="cyan")
         result_table.add_column("Status", style="white")
         result_table.add_column("Purpose", style="dim")
@@ -1416,18 +1620,24 @@ Easy to find and manage all installed servers
             result_table.add_row(
                 result["name"],
                 f"[{result['color']}]{result['status']}[/{result['color']}]",
-                test_targets[i]["description"]
+                test_targets[i]["description"],
             )
 
         self.console.print(result_table)
 
         # Summary
         if success_count == len(test_targets):
-            self.console.print(f"\n[green]🎉 All {len(test_targets)} services accessible![/green]")
+            self.console.print(
+                f"\n[green]🎉 All {len(test_targets)} services accessible![/green]"
+            )
         elif success_count >= len(test_targets) // 2:
-            self.console.print(f"\n[yellow]⚠️  Partial network access - {success_count}/{len(test_targets)} services accessible[/yellow]")
+            self.console.print(
+                f"\n[yellow]⚠️  Partial network access - {success_count}/{len(test_targets)} services accessible[/yellow]"
+            )
         else:
-            self.console.print(f"\n[red]❌ Network issues detected - only {success_count}/{len(test_targets)} services accessible[/red]")
+            self.console.print(
+                f"\n[red]❌ Network issues detected - only {success_count}/{len(test_targets)} services accessible[/red]"
+            )
 
     async def _generate_connectivity_report(self, installed_servers):
         """Generate comprehensive connectivity report."""
@@ -1439,8 +1649,10 @@ Easy to find and manage all installed servers
             "smithery_servers": 0,
             "http_servers": 0,
             "connection_status": "Unknown",
-            "api_key_configured": bool(self.smithery_client.get_api_key(self.config_name)),
-            "network_access": "Untested"
+            "api_key_configured": bool(
+                self.smithery_client.get_api_key(self.config_name)
+            ),
+            "network_access": "Untested",
         }
 
         # Count server types
@@ -1475,7 +1687,7 @@ Easy to find and manage all installed servers
 [bold yellow]NOTE:[/bold yellow] This is a summary report. Run connectivity tests for detailed results.""",
             title="Connectivity Report",
             border_style="cyan",
-            padding=(1, 2)
+            padding=(1, 2),
         )
         self.console.print(report_panel)
 
@@ -1483,6 +1695,7 @@ Easy to find and manage all installed servers
         """Test basic internet connectivity."""
         try:
             import asyncio
+
             success = await self._async_url_check("https://1.1.1.1")
             return success
         except Exception:
@@ -1492,7 +1705,9 @@ Easy to find and manage all installed servers
     async def _clone_server_repository(self, server_details: dict):
         """Clone and set up a server repository."""
         # Placeholder implementation
-        self.console.print("[yellow]Auto-cloning not implemented yet. Please clone manually.[/yellow]")
+        self.console.print(
+            "[yellow]Auto-cloning not implemented yet. Please clone manually.[/yellow]"
+        )
 
     # Server Categories Helper Methods
     async def _organize_servers_by_category(self, installed_servers):
@@ -1502,54 +1717,56 @@ Easy to find and manage all installed servers
                 "description": "File and directory management, read/write operations",
                 "icon": "📁",
                 "servers": [],
-                "total_tools": 0
+                "total_tools": 0,
             },
             "Web & HTTP": {
                 "description": "Web scraping, HTTP operations, API calls",
                 "icon": "🌐",
                 "servers": [],
-                "total_tools": 0
+                "total_tools": 0,
             },
             "AI & ML": {
                 "description": "Machine learning, AI model integration, data analysis",
                 "icon": "🤖",
                 "servers": [],
-                "total_tools": 0
+                "total_tools": 0,
             },
             "Database": {
                 "description": "Database operations, queries, data management",
                 "icon": "🗄️",
                 "servers": [],
-                "total_tools": 0
+                "total_tools": 0,
             },
             "Development": {
                 "description": "Code analysis, linting, development tools",
                 "icon": "⚙️",
                 "servers": [],
-                "total_tools": 0
+                "total_tools": 0,
             },
             "Communication": {
                 "description": "Email, messaging, communication tools",
                 "icon": "💬",
                 "servers": [],
-                "total_tools": 0
+                "total_tools": 0,
             },
             "Media & Content": {
                 "description": "Image processing, text generation, content creation",
                 "icon": "🎨",
                 "servers": [],
-                "total_tools": 0
+                "total_tools": 0,
             },
             "Other": {
                 "description": "Miscellaneous tools and utilities",
                 "icon": "🔧",
                 "servers": [],
-                "total_tools": 0
-            }
+                "total_tools": 0,
+            },
         }
 
         for server in installed_servers:
-            server_name = server.get("displayName", server.get("qualifiedName", "Unknown"))
+            server_name = server.get(
+                "displayName", server.get("qualifiedName", "Unknown")
+            )
             description = server.get("description", "").lower()
             qualified_name = server.get("qualifiedName", "").lower()
 
@@ -1557,25 +1774,76 @@ Easy to find and manage all installed servers
             category_name = "Other"
 
             # File System category
-            if any(keyword in description + qualified_name for keyword in ["file", "filesystem", "directory", "folder", "storage", "disk"]):
+            if any(
+                keyword in description + qualified_name
+                for keyword in [
+                    "file",
+                    "filesystem",
+                    "directory",
+                    "folder",
+                    "storage",
+                    "disk",
+                ]
+            ):
                 category_name = "File System"
             # Web & HTTP category
-            elif any(keyword in description + qualified_name for keyword in ["web", "http", "api", "url", "request", "browser", "scraping"]):
+            elif any(
+                keyword in description + qualified_name
+                for keyword in [
+                    "web",
+                    "http",
+                    "api",
+                    "url",
+                    "request",
+                    "browser",
+                    "scraping",
+                ]
+            ):
                 category_name = "Web & HTTP"
             # AI & ML category
-            elif any(keyword in description + qualified_name for keyword in ["ai", "machine learning", "ml", "neural", "gpt", "openai", "claude"]):
+            elif any(
+                keyword in description + qualified_name
+                for keyword in [
+                    "ai",
+                    "machine learning",
+                    "ml",
+                    "neural",
+                    "gpt",
+                    "openai",
+                    "claude",
+                ]
+            ):
                 category_name = "AI & ML"
             # Database category
-            elif any(keyword in description + qualified_name for keyword in ["database", "db", "sql", "mysql", "postgres", "mongodb"]):
+            elif any(
+                keyword in description + qualified_name
+                for keyword in ["database", "db", "sql", "mysql", "postgres", "mongodb"]
+            ):
                 category_name = "Database"
             # Development category
-            elif any(keyword in description + qualified_name for keyword in ["code", "programming", "lint", "debug", "test", "build"]):
+            elif any(
+                keyword in description + qualified_name
+                for keyword in ["code", "programming", "lint", "debug", "test", "build"]
+            ):
                 category_name = "Development"
             # Communication category
-            elif any(keyword in description + qualified_name for keyword in ["email", "mail", "gmail", "message", "chat", "smtp"]):
+            elif any(
+                keyword in description + qualified_name
+                for keyword in ["email", "mail", "gmail", "message", "chat", "smtp"]
+            ):
                 category_name = "Communication"
             # Media & Content category
-            elif any(keyword in description + qualified_name for keyword in ["image", "video", "media", "content", "text", "generation"]):
+            elif any(
+                keyword in description + qualified_name
+                for keyword in [
+                    "image",
+                    "video",
+                    "media",
+                    "content",
+                    "text",
+                    "generation",
+                ]
+            ):
                 category_name = "Media & Content"
 
             categories[category_name]["servers"].append(server)
@@ -1588,7 +1856,9 @@ Easy to find and manage all installed servers
         # Filter out empty categories
         active_categories = {k: v for k, v in categories.items() if v["servers"]}
 
-        overview_table = Table(title="Server Categories Overview", title_style="bold cyan")
+        overview_table = Table(
+            title="Server Categories Overview", title_style="bold cyan"
+        )
         overview_table.add_column("Category", style="cyan", no_wrap=True)
         overview_table.add_column("Icon", style="white", justify="center", no_wrap=True)
         overview_table.add_column("Servers", style="green", justify="center")
@@ -1601,7 +1871,7 @@ Easy to find and manage all installed servers
                 category_info["icon"],
                 str(len(category_info["servers"])),
                 str(category_info["total_tools"]),
-                category_info["description"]
+                category_info["description"],
             )
 
         self.console.print(overview_table)
@@ -1615,7 +1885,7 @@ Easy to find and manage all installed servers
             f"[bold yellow]Available Tools:[/bold yellow] {total_tools}\n"
             f"[bold blue]Categories:[/bold blue] {len(active_categories)}",
             title="System Statistics",
-            border_style="blue"
+            border_style="blue",
         )
         self.console.print(stats_panel)
 
@@ -1638,23 +1908,33 @@ Easy to find and manage all installed servers
                 f"[bold yellow]Tools:[/bold yellow] {category_info['total_tools']}",
                 title=f"Category: {category_name}",
                 border_style="blue",
-                padding=(1, 2)
+                padding=(1, 2),
             )
             self.console.print(category_panel)
 
             # Server list for this category
             servers_table = Table(show_header=True, header_style="bold magenta")
-            servers_table.add_column("#", style="magenta", no_wrap=True, justify="center")
+            servers_table.add_column(
+                "#", style="magenta", no_wrap=True, justify="center"
+            )
             servers_table.add_column("Server Name", style="cyan", max_width=30)
-            servers_table.add_column("Tools", style="green", justify="center", no_wrap=True)
+            servers_table.add_column(
+                "Tools", style="green", justify="center", no_wrap=True
+            )
             servers_table.add_column("Status", style="white", no_wrap=True)
             servers_table.add_column("Connection", style="dim cyan", no_wrap=True)
 
             for i, server in enumerate(category_info["servers"], 1):
-                server_name = server.get("displayName", server.get("qualifiedName", "Unknown"))
+                server_name = server.get(
+                    "displayName", server.get("qualifiedName", "Unknown")
+                )
                 tool_count = len(server.get("tools", []))
                 enabled = server.get("enabled", True)
-                status = "[bold green]Active[/bold green]" if enabled else "[bold red]Disabled[/bold red]"
+                status = (
+                    "[bold green]Active[/bold green]"
+                    if enabled
+                    else "[bold red]Disabled[/bold red]"
+                )
 
                 # Connection type
                 conn_info = server.get("connections", [{}])[0]
@@ -1666,7 +1946,9 @@ Easy to find and manage all installed servers
                 else:
                     conn_type = conn_type.upper()
 
-                servers_table.add_row(str(i), server_name, str(tool_count), status, conn_type)
+                servers_table.add_row(
+                    str(i), server_name, str(tool_count), status, conn_type
+                )
 
             self.console.print(servers_table)
             self.console.print()  # Spacing between categories
@@ -1674,12 +1956,10 @@ Easy to find and manage all installed servers
     def _check_docker_available(self) -> bool:
         """Check if Docker is available."""
         import subprocess
+
         try:
             result = subprocess.run(
-                ["docker", "--version"],
-                capture_output=True,
-                text=True,
-                check=True
+                ["docker", "--version"], capture_output=True, text=True, check=True
             )
             return "Docker version" in result.stdout
         except (subprocess.CalledProcessError, FileNotFoundError):

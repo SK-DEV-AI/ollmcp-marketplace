@@ -2,12 +2,14 @@
 
 This module handles listing, selecting, and managing Ollama models.
 """
+
 from typing import List, Dict, Any, Optional, Tuple
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from rich.prompt import Prompt
 from ..utils.constants import DEFAULT_MODEL
+
 
 class ModelManager:
     """Manages Ollama models.
@@ -16,7 +18,12 @@ class ModelManager:
     Ollama is running, and selecting models to use with the client.
     """
 
-    def __init__(self, console: Optional[Console] = None, default_model: str = DEFAULT_MODEL, ollama: Optional[Any] = None):
+    def __init__(
+        self,
+        console: Optional[Console] = None,
+        default_model: str = DEFAULT_MODEL,
+        ollama: Optional[Any] = None,
+    ):
         """Initialize the ModelManager.
 
         Args:
@@ -73,8 +80,13 @@ class ModelManager:
 
     def display_current_model(self) -> None:
         """Display the currently selected model in the console."""
-        self.console.print(Panel(f"[bold blue]🧠 Current model:[/bold blue] [bold green]{self.model}[/bold green]",
-                              border_style="blue", expand=False))
+        self.console.print(
+            Panel(
+                f"[bold blue]🧠 Current model:[/bold blue] [bold green]{self.model}[/bold green]",
+                border_style="blue",
+                expand=False,
+            )
+        )
 
     def format_model_display_info(self, model: Dict[str, Any]) -> Tuple[str, str, str]:
         """Format model information for display.
@@ -120,12 +132,16 @@ class ModelManager:
         """
         # Check if Ollama is running first
         if not await self.check_ollama_running():
-            self.console.print(Panel(
-                "[bold red]Ollama is not running![/bold red]\n\n"
-                "Please start Ollama before trying to list or switch models.\n"
-                "You can start Ollama by running the 'ollama serve' command in a terminal.",
-                title="Error", border_style="red", expand=False
-            ))
+            self.console.print(
+                Panel(
+                    "[bold red]Ollama is not running![/bold red]\n\n"
+                    "Please start Ollama before trying to list or switch models.\n"
+                    "You can start Ollama by running the 'ollama serve' command in a terminal.",
+                    title="Error",
+                    border_style="red",
+                    expand=False,
+                )
+            )
             return self.model
 
         # Save the current model in case the user cancels
@@ -136,11 +152,15 @@ class ModelManager:
         result_style = "red"
 
         # Get available models
-        with self.console.status("[cyan]Getting available models from Ollama...[/cyan]"):
+        with self.console.status(
+            "[cyan]Getting available models from Ollama...[/cyan]"
+        ):
             models = await self.list_ollama_models()
 
         if not models:
-            self.console.print("[yellow]No models available. Try pulling a model with 'ollama pull <model>'[/yellow]")
+            self.console.print(
+                "[yellow]No models available. Try pulling a model with 'ollama pull <model>'[/yellow]"
+            )
             return self.model
 
         # Main model selection loop
@@ -150,43 +170,73 @@ class ModelManager:
                 clear_console_func()
 
             # Display model selection interface
-            self.console.print(Panel(Text.from_markup("[bold]🧠 Select a Model[/bold]", justify="center"), expand=True, border_style="green"))
+            self.console.print(
+                Panel(
+                    Text.from_markup(
+                        "[bold]🧠 Select a Model[/bold]", justify="center"
+                    ),
+                    expand=True,
+                    border_style="green",
+                )
+            )
 
             # Sort models by name for easier reading
             models.sort(key=lambda x: x.get("name", ""))
 
             # Display available models in a numbered list
-            self.console.print(Panel("[bold]Available Models[/bold]", border_style="blue", expand=False))
+            self.console.print(
+                Panel(
+                    "[bold]Available Models[/bold]", border_style="blue", expand=False
+                )
+            )
 
             # Display available models
             for i, model in enumerate(models):
-                model_name, size_str, modified_at = self.format_model_display_info(model)
+                model_name, size_str, modified_at = self.format_model_display_info(
+                    model
+                )
                 # Check if this model is the currently selected one (not yet saved)
                 is_current = model_name == selected_model
                 status = "[green]→[/green] " if is_current else "  "
-                self.console.print(f"{i+1}. {status} [bold blue]{model_name}[/bold blue] [dim]({size_str}, {modified_at})[/dim]")
+                self.console.print(
+                    f"{i+1}. {status} [bold blue]{model_name}[/bold blue] [dim]({size_str}, {modified_at})[/dim]"
+                )
 
             # Show current model with an indicator (this is the saved model)
-            self.console.print(f"\nCurrent model: [bold green]{self.model}[/bold green]")
+            self.console.print(
+                f"\nCurrent model: [bold green]{self.model}[/bold green]"
+            )
             if selected_model != self.model:
-                self.console.print(f"Selected model: [bold yellow]{selected_model}[/bold yellow] (not saved yet)")
+                self.console.print(
+                    f"Selected model: [bold yellow]{selected_model}[/bold yellow] (not saved yet)"
+                )
             self.console.print()
 
             # Display the result message if there is one
             if result_message:
-                self.console.print(Panel(result_message, border_style=result_style, expand=False))
+                self.console.print(
+                    Panel(result_message, border_style=result_style, expand=False)
+                )
                 result_message = None  # Clear the message after displaying it
 
             # Show the command panel
-            self.console.print(Panel("[bold yellow]Commands[/bold yellow]", expand=False))
-            self.console.print("• Enter [bold magenta]number[/bold magenta] to select a model")
-            self.console.print("• [bold]s[/bold] or [bold]save[/bold] - Save model selection and return")
-            self.console.print("• [bold]q[/bold] or [bold]quit[/bold] - Cancel and return")
+            self.console.print(
+                Panel("[bold yellow]Commands[/bold yellow]", expand=False)
+            )
+            self.console.print(
+                "• Enter [bold magenta]number[/bold magenta] to select a model"
+            )
+            self.console.print(
+                "• [bold]s[/bold] or [bold]save[/bold] - Save model selection and return"
+            )
+            self.console.print(
+                "• [bold]q[/bold] or [bold]quit[/bold] - Cancel and return"
+            )
 
             selection = Prompt.ask("> ")
             selection = selection.strip().lower()
 
-            if selection in ['s', 'save']:
+            if selection in ["s", "save"]:
                 # Save the selected model as current model
                 self.model = selected_model
 
@@ -198,7 +248,7 @@ class ModelManager:
                     clear_console_func()
                 return self.model
 
-            if selection in ['q', 'quit']:
+            if selection in ["q", "quit"]:
                 # Restore original model
                 if clear_console_func:
                     clear_console_func()

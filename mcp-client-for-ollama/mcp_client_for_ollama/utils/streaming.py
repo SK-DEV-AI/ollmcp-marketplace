@@ -4,12 +4,14 @@ This file implements streaming functionality for the MCP client for Ollama.
 Classes:
     StreamingManager: Handles streaming responses from Ollama.
 """
+
 from rich.markdown import Markdown
 from rich.live import Live
 from rich.spinner import Spinner
 from rich.table import Table
 from rich.text import Text
 from .metrics import display_metrics, extract_metrics
+
 
 class StreamingManager:
     """Manages streaming responses for Ollama API calls"""
@@ -32,7 +34,9 @@ class StreamingManager:
         table.add_row(header)
         return table
 
-    def _create_content_display(self, content, thinking_content="", show_thinking=True, has_tool_calls=False):
+    def _create_content_display(
+        self, content, thinking_content="", show_thinking=True, has_tool_calls=False
+    ):
         """Create a display for content with optional thinking section"""
         if thinking_content and show_thinking:
             # Only add separator and Answer label if there's actual content
@@ -40,7 +44,9 @@ class StreamingManager:
                 if has_tool_calls:
                     combined_content = thinking_content + "\n\n---\n\n" + content
                 else:
-                    combined_content = thinking_content + "\n\n---\n\n**Answer:**\n\n" + content
+                    combined_content = (
+                        thinking_content + "\n\n---\n\n**Answer:**\n\n" + content
+                    )
             else:
                 # No content, just show thinking
                 combined_content = thinking_content
@@ -52,7 +58,14 @@ class StreamingManager:
             else:
                 return Markdown("**Answer:**\n\n" + content)
 
-    async def process_streaming_response(self, stream, print_response=True, thinking_mode=False, show_thinking=True, show_metrics=False):
+    async def process_streaming_response(
+        self,
+        stream,
+        print_response=True,
+        thinking_mode=False,
+        show_thinking=True,
+        show_metrics=False,
+    ):
         """Process a streaming response from Ollama with status spinner and content updates
 
         Args:
@@ -74,7 +87,9 @@ class StreamingManager:
         metrics = None  # Store metrics from final chunk
 
         if print_response:
-            with Live(console=self.console, refresh_per_second=10, vertical_overflow='visible') as live:
+            with Live(
+                console=self.console, refresh_per_second=10, vertical_overflow="visible"
+            ) as live:
                 # Start with working display
                 live.update(self._create_working_display())
 
@@ -85,8 +100,12 @@ class StreamingManager:
                         metrics = extracted_metrics
 
                     # Handle thinking content
-                    if (thinking_mode and hasattr(chunk, 'message') and
-                        hasattr(chunk.message, 'thinking') and chunk.message.thinking):
+                    if (
+                        thinking_mode
+                        and hasattr(chunk, "message")
+                        and hasattr(chunk.message, "thinking")
+                        and chunk.message.thinking
+                    ):
 
                         if not thinking_content:
                             thinking_content = "🤔 **Thinking:**\n\n"
@@ -97,13 +116,19 @@ class StreamingManager:
                             showing_working = False
 
                         display = self._create_content_display(
-                            accumulated_text, thinking_content, show_thinking=True, has_tool_calls=False
+                            accumulated_text,
+                            thinking_content,
+                            show_thinking=True,
+                            has_tool_calls=False,
                         )
                         live.update(display)
 
                     # Handle regular content
-                    if (hasattr(chunk, 'message') and hasattr(chunk.message, 'content') and
-                        chunk.message.content):
+                    if (
+                        hasattr(chunk, "message")
+                        and hasattr(chunk.message, "content")
+                        and chunk.message.content
+                    ):
 
                         accumulated_text += chunk.message.content
 
@@ -113,13 +138,19 @@ class StreamingManager:
 
                         # Update display based on thinking mode
                         display = self._create_content_display(
-                            accumulated_text, thinking_content, show_thinking, has_tool_calls=False
+                            accumulated_text,
+                            thinking_content,
+                            show_thinking,
+                            has_tool_calls=False,
                         )
                         live.update(display)
 
                     # Handle tool calls
-                    if (hasattr(chunk, 'message') and hasattr(chunk.message, 'tool_calls') and
-                        chunk.message.tool_calls):
+                    if (
+                        hasattr(chunk, "message")
+                        and hasattr(chunk.message, "tool_calls")
+                        and chunk.message.tool_calls
+                    ):
                         # Hide working display and show final content if any before tool calls
                         showing_working = False
 
@@ -129,7 +160,10 @@ class StreamingManager:
                         # Show final content display if we have any accumulated text
                         if accumulated_text or thinking_content:
                             display = self._create_content_display(
-                                accumulated_text, thinking_content, show_thinking, has_tool_calls=True
+                                accumulated_text,
+                                thinking_content,
+                                show_thinking,
+                                has_tool_calls=True,
                             )
                             live.update(display)
                         else:
@@ -151,16 +185,26 @@ class StreamingManager:
                 if extracted_metrics:
                     metrics = extracted_metrics
 
-                if (thinking_mode and hasattr(chunk, 'message') and
-                    hasattr(chunk.message, 'thinking') and chunk.message.thinking):
+                if (
+                    thinking_mode
+                    and hasattr(chunk, "message")
+                    and hasattr(chunk.message, "thinking")
+                    and chunk.message.thinking
+                ):
                     thinking_content += chunk.message.thinking
 
-                if (hasattr(chunk, 'message') and hasattr(chunk.message, 'content') and
-                    chunk.message.content):
+                if (
+                    hasattr(chunk, "message")
+                    and hasattr(chunk.message, "content")
+                    and chunk.message.content
+                ):
                     accumulated_text += chunk.message.content
 
-                if (hasattr(chunk, 'message') and hasattr(chunk.message, 'tool_calls') and
-                    chunk.message.tool_calls):
+                if (
+                    hasattr(chunk, "message")
+                    and hasattr(chunk.message, "tool_calls")
+                    and chunk.message.tool_calls
+                ):
                     for tool in chunk.message.tool_calls:
                         tool_calls.append(tool)
 

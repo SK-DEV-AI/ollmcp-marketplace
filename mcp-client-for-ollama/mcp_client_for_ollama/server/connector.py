@@ -15,11 +15,17 @@ from mcp.client.stdio import stdio_client, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
 
-from .discovery import process_server_paths, process_server_urls, parse_server_configs, auto_discover_servers
+from .discovery import (
+    process_server_paths,
+    process_server_urls,
+    parse_server_configs,
+    auto_discover_servers,
+)
 from .auth import AuthProviderFactory
 from ..utils.constants import MCP_PROTOCOL_VERSION
 from ..utils.connection import check_url_connectivity
 from ..config.manager import ConfigManager
+
 
 class ServerConnector:
     """Manages connections to one or more MCP servers.
@@ -29,7 +35,12 @@ class ServerConnector:
     tools provided by those servers.
     """
 
-    def __init__(self, exit_stack: AsyncExitStack, console: Optional[Console] = None, config_manager: Optional[ConfigManager] = None):
+    def __init__(
+        self,
+        exit_stack: AsyncExitStack,
+        console: Optional[Console] = None,
+        config_manager: Optional[ConfigManager] = None,
+    ):
         """Initialize the ServerConnector.
 
         Args:
@@ -45,7 +56,13 @@ class ServerConnector:
         self.enabled_tools = {}  # Dict to store tool enabled status
         self.session_ids = {}  # Dict to store session IDs for HTTP connections
 
-    async def connect_to_servers(self, server_paths=None, server_urls=None, config_path=None, auto_discovery=False) -> Tuple[dict, list, dict]:
+    async def connect_to_servers(
+        self,
+        server_paths=None,
+        server_urls=None,
+        config_path=None,
+        auto_discovery=False,
+    ) -> Tuple[dict, list, dict]:
         """Connect to one or more MCP servers
 
         Args:
@@ -64,14 +81,20 @@ class ServerConnector:
             installed_servers = self.config_manager.get_installed_servers()
             for server in installed_servers:
                 if not server.get("enabled", True):
-                    self.console.print(f"[yellow]Skipping disabled server: {server.get('qualifiedName')}[/yellow]")
+                    self.console.print(
+                        f"[yellow]Skipping disabled server: {server.get('qualifiedName')}[/yellow]"
+                    )
                     continue
 
-                self.console.print(f"[cyan]Found installed server: {server.get('qualifiedName')}[/cyan]")
+                self.console.print(
+                    f"[cyan]Found installed server: {server.get('qualifiedName')}[/cyan]"
+                )
 
                 connections = server.get("connections")
                 if not connections:
-                    self.console.print(f"[yellow]Warning: Installed server '{server.get('qualifiedName')}' has no connection information. Skipping.[/yellow]")
+                    self.console.print(
+                        f"[yellow]Warning: Installed server '{server.get('qualifiedName')}' has no connection information. Skipping.[/yellow]"
+                    )
                     continue
 
                 # For now, just use the first available connection
@@ -83,15 +106,19 @@ class ServerConnector:
                 # Let's match the structure that _connect_to_server expects.
                 server_obj = {
                     "name": server.get("qualifiedName"),
-                    "config": server.get("config", {}) # User-provided config
+                    "config": server.get("config", {}),  # User-provided config
                 }
 
                 if conn_type in ["shttp", "http"]:
                     server_obj["type"] = "streamable_http"
-                    server_obj["url"] = connection_info.get("url") or connection_info.get("deploymentUrl")
+                    server_obj["url"] = connection_info.get(
+                        "url"
+                    ) or connection_info.get("deploymentUrl")
                 elif conn_type == "sse":
                     server_obj["type"] = "sse"
-                    server_obj["url"] = connection_info.get("url") or connection_info.get("deploymentUrl")
+                    server_obj["url"] = connection_info.get(
+                        "url"
+                    ) or connection_info.get("deploymentUrl")
                 elif conn_type == "stdio":
                     # This is a stdio server. The user should have been prompted to download it
                     # and provide a local path, which is stored in the server object.
@@ -100,14 +127,20 @@ class ServerConnector:
                         server_obj["type"] = "script"
                         server_obj["path"] = local_path
                     else:
-                        self.console.print(f"[yellow]Warning: stdio server '{server.get('qualifiedName')}' is configured but its local path is missing. Skipping.[/yellow]")
+                        self.console.print(
+                            f"[yellow]Warning: stdio server '{server.get('qualifiedName')}' is configured but its local path is missing. Skipping.[/yellow]"
+                        )
                         continue
                 else:
-                    self.console.print(f"[yellow]Warning: Unsupported connection type '{conn_type}' for server '{server.get('qualifiedName')}'. Skipping.[/yellow]")
+                    self.console.print(
+                        f"[yellow]Warning: Unsupported connection type '{conn_type}' for server '{server.get('qualifiedName')}'. Skipping.[/yellow]"
+                    )
                     continue
 
                 if not server_obj.get("url") and conn_type != "stdio":
-                    self.console.print(f"[yellow]Warning: Installed server '{server.get('qualifiedName')}' is missing a URL for its connection. Skipping.[/yellow]")
+                    self.console.print(
+                        f"[yellow]Warning: Installed server '{server.get('qualifiedName')}' is missing a URL for its connection. Skipping.[/yellow]"
+                    )
                     continue
 
                 all_servers.append(server_obj)
@@ -116,14 +149,18 @@ class ServerConnector:
         if server_paths:
             script_servers = process_server_paths(server_paths)
             for server in script_servers:
-                self.console.print(f"[cyan]Found server script: {server['path']}[/cyan]")
+                self.console.print(
+                    f"[cyan]Found server script: {server['path']}[/cyan]"
+                )
             all_servers.extend(script_servers)
 
         # Process server URLs
         if server_urls:
             url_servers = process_server_urls(server_urls)
             for server in url_servers:
-                self.console.print(f"[cyan]Found server URL: {server['url']} (type: {server['type']})[/cyan]")
+                self.console.print(
+                    f"[cyan]Found server URL: {server['url']} (type: {server['type']})[/cyan]"
+                )
             all_servers.extend(url_servers)
 
         # Process config file
@@ -131,24 +168,34 @@ class ServerConnector:
             try:
                 config_servers = parse_server_configs(config_path)
                 for server in config_servers:
-                    self.console.print(f"[cyan]Found server in config: {server['name']}[/cyan]")
+                    self.console.print(
+                        f"[cyan]Found server in config: {server['name']}[/cyan]"
+                    )
                 all_servers.extend(config_servers)
             except Exception as e:
-                self.console.print(f"[red]Error loading server configurations: {str(e)}[/red]")
+                self.console.print(
+                    f"[red]Error loading server configurations: {str(e)}[/red]"
+                )
 
         # Auto-discover servers if enabled
         if auto_discovery:
             discovered_servers = auto_discover_servers()
             for server in discovered_servers:
-                self.console.print(f"[cyan]Auto-discovered server: {server['name']}[/cyan]")
+                self.console.print(
+                    f"[cyan]Auto-discovered server: {server['name']}[/cyan]"
+                )
             all_servers.extend(discovered_servers)
 
         if not all_servers:
-            self.console.print(Panel(
-                "[yellow]No servers specified or all servers were invalid.[/yellow]\n"
-                "The client will continue without tool support.",
-                title="Warning", border_style="yellow", expand=False
-            ))
+            self.console.print(
+                Panel(
+                    "[yellow]No servers specified or all servers were invalid.[/yellow]\n"
+                    "The client will continue without tool support.",
+                    title="Warning",
+                    border_style="yellow",
+                    expand=False,
+                )
+            )
             return self.sessions, self.available_tools, self.enabled_tools
 
         # Check all servers url connectivity (skip connectivity check for Smithery servers)
@@ -163,20 +210,33 @@ class ServerConnector:
             # or require special authentication
             is_smithery_server = server_name.startswith("@") and "/" in server_name
 
-            if server.get("type") in ["sse", "streamable_http"] and not is_smithery_server:
+            if (
+                server.get("type") in ["sse", "streamable_http"]
+                and not is_smithery_server
+            ):
                 if not server_url:
-                    self.console.print(f"[yellow]Warning: Server '{server_name}' missing URL[/yellow]")
+                    self.console.print(
+                        f"[yellow]Warning: Server '{server_name}' missing URL[/yellow]"
+                    )
                     skipped_servers.append(server_name)
                     continue
                 elif not check_url_connectivity(server_url):
-                    self.console.print(f"[yellow]Warning: Server '{server_name}' failed connectivity check[/yellow]")
+                    self.console.print(
+                        f"[yellow]Warning: Server '{server_name}' failed connectivity check[/yellow]"
+                    )
                     skipped_servers.append(server_name)
                     continue
-            elif server.get("type") in ["sse", "streamable_http"] and is_smithery_server:
+            elif (
+                server.get("type") in ["sse", "streamable_http"] and is_smithery_server
+            ):
                 # For Smithery servers, show a different message and try to connect anyway
-                self.console.print(f"[cyan]🔄 Smithery server '{server_name}' - skipping connectivity check[/cyan]")
+                self.console.print(
+                    f"[cyan]🔄 Smithery server '{server_name}' - skipping connectivity check[/cyan]"
+                )
                 if not server_url:
-                    self.console.print(f"[red]Smithery server '{server_name}' missing URL, skipping[/red]")
+                    self.console.print(
+                        f"[red]Smithery server '{server_name}' missing URL, skipping[/red]"
+                    )
                     skipped_servers.append(server_name)
                     continue
             servers_to_connect.append(server)
@@ -184,10 +244,10 @@ class ServerConnector:
 
         if skipped_servers:
             self.console.print(
-            f"[red]Skipping servers: {', '.join(skipped_servers)}[/red]"
+                f"[red]Skipping servers: {', '.join(skipped_servers)}[/red]"
             )
             self.console.print(
-            "[yellow]Check server URLs and ensure servers are accessible.[/yellow]"
+                "[yellow]Check server URLs and ensure servers are accessible.[/yellow]"
             )
 
         # Connect to each server
@@ -195,11 +255,15 @@ class ServerConnector:
             await self._connect_to_server(server)
 
         if not self.sessions:
-            self.console.print(Panel(
-                "[bold red]Could not connect to any MCP servers![/bold red]\n"
-                "Check that server paths exist and are accessible.",
-                title="Error", border_style="red", expand=False
-            ))
+            self.console.print(
+                Panel(
+                    "[bold red]Could not connect to any MCP servers![/bold red]\n"
+                    "Check that server paths exist and are accessible.",
+                    title="Error",
+                    border_style="red",
+                    expand=False,
+                )
+            )
 
         return self.sessions, self.available_tools, self.enabled_tools
 
@@ -224,29 +288,41 @@ class ServerConnector:
                 # Connect to SSE server
                 url = self._get_url_from_server(server)
                 if not url:
-                    self.console.print(f"[red]Error: SSE server {server_name} missing URL[/red]")
+                    self.console.print(
+                        f"[red]Error: SSE server {server_name} missing URL[/red]"
+                    )
                     return False
 
                 headers = self._get_headers_from_server(server)
 
                 # Connect using SSE transport
-                sse_transport = await self.exit_stack.enter_async_context(sse_client(url, headers=headers))
+                sse_transport = await self.exit_stack.enter_async_context(
+                    sse_client(url, headers=headers)
+                )
                 read_stream, write_stream = sse_transport
-                session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+                session = await self.exit_stack.enter_async_context(
+                    ClientSession(read_stream, write_stream)
+                )
 
             elif server_type == "streamable_http":
                 # Connect to Streamable HTTP server
                 url = self._get_url_from_server(server)
                 if not url:
-                    self.console.print(f"[red]Error: HTTP server {server_name} missing URL[/red]")
+                    self.console.print(
+                        f"[red]Error: HTTP server {server_name} missing URL[/red]"
+                    )
                     return False
 
                 # For Smithery servers, check if we need OAuth provider
-                is_smithery_server = (server_name.startswith("@") and "/" in server_name) or "smithery.ai" in url
+                is_smithery_server = (
+                    server_name.startswith("@") and "/" in server_name
+                ) or "smithery.ai" in url
                 auth_provider = None
 
                 if is_smithery_server:
-                    self.console.print(f"[cyan]🔄 Setting up OAuth provider for Smithery server[/cyan]")
+                    self.console.print(
+                        f"[cyan]🔄 Setting up OAuth provider for Smithery server[/cyan]"
+                    )
 
                     # Get API key from config manager if available
                     api_key = None
@@ -254,11 +330,17 @@ class ServerConnector:
                         config_data = self.config_manager.load_configuration()
                         api_key = config_data.get("smithery_api_key")
 
-                    auth_provider = AuthProviderFactory.create_provider(url, api_key, "smithery")
+                    auth_provider = AuthProviderFactory.create_provider(
+                        url, api_key, "smithery"
+                    )
                     if auth_provider:
-                        self.console.print(f"[green]✅ OAuth provider created for {server_name}[/green]")
+                        self.console.print(
+                            f"[green]✅ OAuth provider created for {server_name}[/green]"
+                        )
                     else:
-                        self.console.print(f"[yellow]⚠️ Failed to create OAuth provider for {server_name}[/yellow]")
+                        self.console.print(
+                            f"[yellow]⚠️ Failed to create OAuth provider for {server_name}[/yellow]"
+                        )
 
                 # Get headers with OAuth authentication if needed
                 headers = self._get_headers_from_server(server)
@@ -270,10 +352,12 @@ class ServerConnector:
                 )
 
                 read_stream, write_stream, session_info = transport
-                session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+                session = await self.exit_stack.enter_async_context(
+                    ClientSession(read_stream, write_stream)
+                )
 
                 # Store session ID if provided
-                if hasattr(session_info, 'session_id') and session_info.session_id:
+                if hasattr(session_info, "session_id") and session_info.session_id:
                     self.session_ids[server_name] = session_info.session_id
 
             elif server_type == "script":
@@ -282,9 +366,13 @@ class ServerConnector:
                 if server_params is None:
                     return False
 
-                stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
+                stdio_transport = await self.exit_stack.enter_async_context(
+                    stdio_client(server_params)
+                )
                 read_stream, write_stream = stdio_transport
-                session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+                session = await self.exit_stack.enter_async_context(
+                    ClientSession(read_stream, write_stream)
+                )
 
             else:
                 # Connect to config-based server using STDIO
@@ -292,18 +380,19 @@ class ServerConnector:
                 if server_params is None:
                     return False
 
-                stdio_transport = await self.exit_stack.enter_async_context(stdio_client(server_params))
+                stdio_transport = await self.exit_stack.enter_async_context(
+                    stdio_client(server_params)
+                )
                 read_stream, write_stream = stdio_transport
-                session = await self.exit_stack.enter_async_context(ClientSession(read_stream, write_stream))
+                session = await self.exit_stack.enter_async_context(
+                    ClientSession(read_stream, write_stream)
+                )
 
             # Initialize the session
             await session.initialize()
 
             # Store the session
-            self.sessions[server_name] = {
-                "session": session,
-                "tools": []
-            }
+            self.sessions[server_name] = {"session": session, "tools": []}
 
             # Get tools from this server
             response = await session.list_tools()
@@ -316,9 +405,15 @@ class ServerConnector:
                 # Clone the tool but update the name
                 tool_copy = Tool(
                     name=qualified_name,
-                    description=f"[{server_name}] {tool.description}" if hasattr(tool, 'description') else f"Tool from {server_name}",
+                    description=(
+                        f"[{server_name}] {tool.description}"
+                        if hasattr(tool, "description")
+                        else f"Tool from {server_name}"
+                    ),
                     inputSchema=tool.inputSchema,
-                    outputSchema=tool.outputSchema if hasattr(tool, 'outputSchema') else None
+                    outputSchema=(
+                        tool.outputSchema if hasattr(tool, "outputSchema") else None
+                    ),
                 )
                 server_tools.append(tool_copy)
                 self.enabled_tools[qualified_name] = True
@@ -326,20 +421,30 @@ class ServerConnector:
             self.sessions[server_name]["tools"] = server_tools
             self.available_tools.extend(server_tools)
 
-            self.console.print(f"[green]Successfully connected to {server_name} with {len(server_tools)} tools[/green]")
+            self.console.print(
+                f"[green]Successfully connected to {server_name} with {len(server_tools)} tools[/green]"
+            )
             return True
 
         except FileNotFoundError as e:
-            self.console.print(f"[red]Error connecting to {server_name}: File not found - {str(e)}[/red]")
+            self.console.print(
+                f"[red]Error connecting to {server_name}: File not found - {str(e)}[/red]"
+            )
             return False
         except PermissionError:
-            self.console.print(f"[red]Error connecting to {server_name}: Permission denied[/red]")
+            self.console.print(
+                f"[red]Error connecting to {server_name}: Permission denied[/red]"
+            )
             return False
         except Exception as e:
-            self.console.print(f"[red]Error connecting to {server_name}: {str(e)}[/red]")
+            self.console.print(
+                f"[red]Error connecting to {server_name}: {str(e)}[/red]"
+            )
             return False
 
-    def _create_script_params(self, server: Dict[str, Any]) -> Optional[StdioServerParameters]:
+    def _create_script_params(
+        self, server: Dict[str, Any]
+    ) -> Optional[StdioServerParameters]:
         """Create server parameters for a script-type server
 
         Args:
@@ -349,27 +454,29 @@ class ServerConnector:
             StdioServerParameters or None if invalid
         """
         path = server["path"]
-        is_python = path.endswith('.py')
-        is_js = path.endswith('.js')
+        is_python = path.endswith(".py")
+        is_js = path.endswith(".js")
 
         if not (is_python or is_js):
-            self.console.print(f"[yellow]Warning: Server script {path} must be a .py or .js file. Skipping.[/yellow]")
+            self.console.print(
+                f"[yellow]Warning: Server script {path} must be a .py or .js file. Skipping.[/yellow]"
+            )
             return None
 
         command = "python" if is_python else "node"
 
         # Validate the command exists in PATH
         if not shutil.which(command):
-            self.console.print(f"[yellow]Warning: Command '{command}' not found in PATH. Skipping server {server['name']}.[/yellow]")
+            self.console.print(
+                f"[yellow]Warning: Command '{command}' not found in PATH. Skipping server {server['name']}.[/yellow]"
+            )
             return None
 
-        return StdioServerParameters(
-            command=command,
-            args=[path],
-            env=None
-        )
+        return StdioServerParameters(command=command, args=[path], env=None)
 
-    def _create_config_params(self, server: Dict[str, Any]) -> Optional[StdioServerParameters]:
+    def _create_config_params(
+        self, server: Dict[str, Any]
+    ) -> Optional[StdioServerParameters]:
         """Create server parameters for a config-type server
 
         Args:
@@ -380,14 +487,18 @@ class ServerConnector:
         """
         server_config = server.get("config")
         if not server_config:
-            self.console.print(f"[yellow]Warning: Server '{server['name']}' has a config-type connection but is missing the 'config' object. Skipping.[/yellow]")
+            self.console.print(
+                f"[yellow]Warning: Server '{server['name']}' has a config-type connection but is missing the 'config' object. Skipping.[/yellow]"
+            )
             return None
 
         command = server_config.get("command")
 
         # Validate the command exists in PATH
         if not command or not shutil.which(command):
-            self.console.print(f"[yellow]Warning: Command '{command}' for server '{server['name']}' not found in PATH. Skipping.[/yellow]")
+            self.console.print(
+                f"[yellow]Warning: Command '{command}' for server '{server['name']}' not found in PATH. Skipping.[/yellow]"
+            )
             return None
 
         args = server_config.get("args", [])
@@ -397,17 +508,17 @@ class ServerConnector:
         fixed_args, dir_exists, missing_dir = self._fix_directory_args(args)
 
         if not dir_exists:
-            self.console.print(f"[yellow]Warning: Server '{server['name']}' specifies a directory that doesn't exist: {missing_dir}[/yellow]")
+            self.console.print(
+                f"[yellow]Warning: Server '{server['name']}' specifies a directory that doesn't exist: {missing_dir}[/yellow]"
+            )
             self.console.print(f"[yellow]Skipping server '{server['name']}'[/yellow]")
             return None
 
-        return StdioServerParameters(
-            command=command,
-            args=fixed_args,
-            env=env
-        )
+        return StdioServerParameters(command=command, args=fixed_args, env=env)
 
-    def _fix_directory_args(self, args: List[str]) -> Tuple[List[str], bool, Optional[str]]:
+    def _fix_directory_args(
+        self, args: List[str]
+    ) -> Tuple[List[str], bool, Optional[str]]:
         """Fix common issues with directory arguments and validate directory existence
 
         Args:
@@ -426,14 +537,20 @@ class ServerConnector:
 
         for i, arg in enumerate(fixed_args):
             if arg == "--directory" and i + 1 < len(fixed_args):
-                dir_path = fixed_args[i+1]
+                dir_path = fixed_args[i + 1]
 
                 # If the path is a file, use its parent directory
-                if os.path.isfile(dir_path) and (dir_path.endswith('.py') or dir_path.endswith('.js')):
-                    self.console.print(f"[yellow]Warning: Server specifies a file as directory: {dir_path}[/yellow]")
-                    self.console.print(f"[green]Automatically fixing to use parent directory instead[/green]")
-                    dir_path = os.path.dirname(dir_path) or '.'
-                    fixed_args[i+1] = dir_path
+                if os.path.isfile(dir_path) and (
+                    dir_path.endswith(".py") or dir_path.endswith(".js")
+                ):
+                    self.console.print(
+                        f"[yellow]Warning: Server specifies a file as directory: {dir_path}[/yellow]"
+                    )
+                    self.console.print(
+                        f"[green]Automatically fixing to use parent directory instead[/green]"
+                    )
+                    dir_path = os.path.dirname(dir_path) or "."
+                    fixed_args[i + 1] = dir_path
 
                 # Check if directory exists
                 if not os.path.exists(dir_path):
@@ -515,12 +632,16 @@ class ServerConnector:
         # Try to get headers directly from server dict
         headers = server.get("headers", {})
 
-        self.console.print(f"[cyan]DEBUG: Initial headers from server: {headers}[/cyan]")
+        self.console.print(
+            f"[cyan]DEBUG: Initial headers from server: {headers}[/cyan]"
+        )
 
         # If not there, try the config subdict
         if not headers and "config" in server:
             headers = server["config"].get("headers", {})
-            self.console.print(f"[cyan]DEBUG: Headers from config subdict: {headers}[/cyan]")
+            self.console.print(
+                f"[cyan]DEBUG: Headers from config subdict: {headers}[/cyan]"
+            )
 
         # Always add MCP Protocol Version header for HTTP connections
         server_type = server.get("type", "script")
@@ -531,18 +652,24 @@ class ServerConnector:
         if not server_url and "config" in server:
             server_url = server["config"].get("url")
 
-        self.console.print(f"[cyan]DEBUG: Server type: {server_type}, Server name: {server_name}[/cyan]")
+        self.console.print(
+            f"[cyan]DEBUG: Server type: {server_type}, Server name: {server_name}[/cyan]"
+        )
 
         if server_type in ["sse", "streamable_http"]:
             headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
 
         # For Smithery servers, use OAuth authentication
         # Smithery servers are identified by the format @owner/server-name
-        is_smithery_server = (server_name.startswith("@") and "/" in server_name) or ("smithery.ai" in server_url if server_url else False)
+        is_smithery_server = (server_name.startswith("@") and "/" in server_name) or (
+            "smithery.ai" in server_url if server_url else False
+        )
 
         if is_smithery_server:
             self.console.print(f"[cyan]Detected Smithery server: {server_name}[/cyan]")
-            self.console.print(f"[green]🔄 Attempting OAuth authentication for Smithery server...[/green]")
+            self.console.print(
+                f"[green]🔄 Attempting OAuth authentication for Smithery server...[/green]"
+            )
 
             # Create OAuth provider for this Smithery server
             auth_provider = AuthProviderFactory.create_provider(server_url, "smithery")
@@ -556,18 +683,30 @@ class ServerConnector:
                     token_type = existing_tokens.get("token_type", "Bearer")
                     access_token = existing_tokens.get("access_token")
                     headers["Authorization"] = f"{token_type} {access_token}"
-                    self.console.print(f"[green]✅ Using cached OAuth token for {server_name}[/green]")
+                    self.console.print(
+                        f"[green]✅ Using cached OAuth token for {server_name}[/green]"
+                    )
                 else:
                     # We need to perform OAuth flow
-                    self.console.print(f"[yellow]⚠️ No cached OAuth token found for {server_name}[/yellow]")
-                    self.console.print(f"[blue]ℹ️ This server requires OAuth authentication[/blue]")
-                    self.console.print(f"[blue]ℹ️ The MCP client will prompt for OAuth completion[/blue]")
+                    self.console.print(
+                        f"[yellow]⚠️ No cached OAuth token found for {server_name}[/yellow]"
+                    )
+                    self.console.print(
+                        f"[blue]ℹ️ This server requires OAuth authentication[/blue]"
+                    )
+                    self.console.print(
+                        f"[blue]ℹ️ The MCP client will prompt for OAuth completion[/blue]"
+                    )
                     # For now, we'll return the headers without auth and let the transport layer handle OAuth
                     # The MCP library should trigger OAuth through the client->transport->auth provider chain
             else:
-                self.console.print(f"[red]❌ Failed to create OAuth provider for {server_name}[/red]")
+                self.console.print(
+                    f"[red]❌ Failed to create OAuth provider for {server_name}[/red]"
+                )
         else:
-            self.console.print(f"[cyan]Non-Smithery server: {server_name}, using standard authentication flow[/cyan]")
+            self.console.print(
+                f"[cyan]Non-Smithery server: {server_name}, using standard authentication flow[/cyan]"
+            )
         return headers
 
     async def disconnect_all_servers(self):

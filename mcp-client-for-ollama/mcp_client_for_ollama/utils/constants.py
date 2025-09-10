@@ -3,7 +3,9 @@
 import os
 
 # Default Claude config file location
-DEFAULT_CLAUDE_CONFIG = os.path.expanduser("~/Library/Application Support/Claude/claude_desktop_config.json")
+DEFAULT_CLAUDE_CONFIG = os.path.expanduser(
+    "~/Library/Application Support/Claude/claude_desktop_config.json"
+)
 
 # Default config directory and filename for MCP client for Ollama
 DEFAULT_CONFIG_DIR = os.path.expanduser("~/.config/ollmcp")
@@ -27,36 +29,36 @@ MCP_PROTOCOL_VERSION = "2025-06-18"
 
 # Interactive commands and their descriptions for autocomplete
 INTERACTIVE_COMMANDS = {
-    'tools': 'Configure available tools',
-    'help': 'Show help information',
-    'model': 'Select Ollama model',
-    'model-config': 'Configure model parameters',
-    'context': 'Toggle context retention',
-    'thinking-mode': 'Toggle thinking mode',
-    'show-thinking': 'Toggle thinking visibility',
-    'show-tool-execution': 'Toggle tool execution display',
-    'show-metrics': 'Toggle performance metrics display',
-    'clear': 'Clear conversation context',
-    'context-info': 'Show context information',
-    'clear-screen': 'Clear terminal screen',
-    'save-config': 'Save current configuration',
-    'load-config': 'Load saved configuration',
-    'reset-config': 'Reset to default config',
-    'reload-servers': 'Reload MCP servers',
-    'human-in-the-loop': 'Toggle HIL confirmations',
-    'mcphub': 'Open the MCP-HUB for server management',
-    'hub': 'Open the MCP-HUB for server management',
-    'quit': 'Exit the application',
-    'exit': 'Exit the application',
-    'bye': 'Exit the application'
+    "tools": "Configure available tools",
+    "help": "Show help information",
+    "model": "Select Ollama model",
+    "model-config": "Configure model parameters",
+    "context": "Toggle context retention",
+    "thinking-mode": "Toggle thinking mode",
+    "show-thinking": "Toggle thinking visibility",
+    "show-tool-execution": "Toggle tool execution display",
+    "show-metrics": "Toggle performance metrics display",
+    "clear": "Clear conversation context",
+    "context-info": "Show context information",
+    "clear-screen": "Clear terminal screen",
+    "save-config": "Save current configuration",
+    "load-config": "Load saved configuration",
+    "reset-config": "Reset to default config",
+    "reload-servers": "Reload MCP servers",
+    "human-in-the-loop": "Toggle HIL confirmations",
+    "mcphub": "Open the MCP-HUB for server management",
+    "hub": "Open the MCP-HUB for server management",
+    "quit": "Exit the application",
+    "exit": "Exit the application",
+    "bye": "Exit the application",
 }
 
 # Default completion menu style (used by prompt_toolkit in interactive mode)
 DEFAULT_COMPLETION_STYLE = {
-    'prompt': 'ansibrightyellow bold',
-    'completion-menu.completion': 'bg:#1e1e1e #ffffff',
-    'completion-menu.completion.current': 'bg:#1e1e1e #00ff00 bold reverse',
-    'completion-menu.meta': 'bg:#1e1e1e #888888 italic',
-    'completion-menu.meta.current': 'bg:#1e1e1e #ffffff italic reverse',
-    'bottom-toolbar': 'reverse',
+    "prompt": "ansibrightyellow bold",
+    "completion-menu.completion": "bg:#1e1e1e #ffffff",
+    "completion-menu.completion.current": "bg:#1e1e1e #00ff00 bold reverse",
+    "completion-menu.meta": "bg:#1e1e1e #888888 italic",
+    "completion-menu.meta.current": "bg:#1e1e1e #ffffff italic reverse",
+    "bottom-toolbar": "reverse",
 }

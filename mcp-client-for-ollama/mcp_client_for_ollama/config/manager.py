@@ -12,6 +12,7 @@ from rich.panel import Panel
 from ..utils.constants import DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE
 from .defaults import default_config
 
+
 class ConfigManager:
     """Manages configuration for the MCP Client for Ollama.
 
@@ -70,16 +71,20 @@ class ConfigManager:
 
         # Check if config file exists
         if not os.path.exists(config_path):
-            self.console.print(Panel(
-                f"[yellow]Configuration file not found:[/yellow]\n"
-                f"[blue]{config_path}[/blue]",
-                title="Config Not Found", border_style="yellow", expand=False
-            ))
+            self.console.print(
+                Panel(
+                    f"[yellow]Configuration file not found:[/yellow]\n"
+                    f"[blue]{config_path}[/blue]",
+                    title="Config Not Found",
+                    border_style="yellow",
+                    expand=False,
+                )
+            )
             return default_config()
 
         # Read config file
         try:
-            with open(config_path, 'r') as f:
+            with open(config_path, "r") as f:
                 config_data = json.load(f)
 
             # Validate loaded configuration and provide defaults for missing fields
@@ -87,14 +92,19 @@ class ConfigManager:
             return validated_config
 
         except Exception as e:
-            self.console.print(Panel(
-                f"[red]Error loading configuration:[/red]\n"
-                f"{str(e)}",
-                title="Error", border_style="red", expand=False
-            ))
+            self.console.print(
+                Panel(
+                    f"[red]Error loading configuration:[/red]\n" f"{str(e)}",
+                    title="Error",
+                    border_style="red",
+                    expand=False,
+                )
+            )
             return default_config()
 
-    def save_configuration(self, config_data: Dict[str, Any], config_name: Optional[str] = None) -> bool:
+    def save_configuration(
+        self, config_data: Dict[str, Any], config_name: Optional[str] = None
+    ) -> bool:
         """Save tool configuration and model settings to a file.
 
         Args:
@@ -119,22 +129,29 @@ class ConfigManager:
 
         # Write to file
         try:
-            with open(config_path, 'w') as f:
+            with open(config_path, "w") as f:
                 json.dump(config_data, f, indent=2)
 
-            self.console.print(Panel(
-                f"[green]Configuration saved successfully to:[/green]\n"
-                f"[blue]{config_path}[/blue]",
-                title="Config Saved", border_style="green", expand=False
-            ))
+            self.console.print(
+                Panel(
+                    f"[green]Configuration saved successfully to:[/green]\n"
+                    f"[blue]{config_path}[/blue]",
+                    title="Config Saved",
+                    border_style="green",
+                    expand=False,
+                )
+            )
             return True
 
         except Exception as e:
-            self.console.print(Panel(
-                f"[red]Error saving configuration:[/red]\n"
-                f"{str(e)}",
-                title="Error", border_style="red", expand=False
-            ))
+            self.console.print(
+                Panel(
+                    f"[red]Error saving configuration:[/red]\n" f"{str(e)}",
+                    title="Error",
+                    border_style="red",
+                    expand=False,
+                )
+            )
             return False
 
     def reset_configuration(self) -> Dict[str, Any]:
@@ -145,14 +162,18 @@ class ConfigManager:
         """
         config = default_config()
 
-        self.console.print(Panel(
-            "[green]Configuration reset to defaults![/green]\n"
-            "• All tools enabled\n"
-            "• Context retention enabled\n"
-            "• Thinking mode enabled\n"
-            "• Thinking text hidden",
-            title="Config Reset", border_style="green", expand=False
-        ))
+        self.console.print(
+            Panel(
+                "[green]Configuration reset to defaults![/green]\n"
+                "• All tools enabled\n"
+                "• Context retention enabled\n"
+                "• Thinking mode enabled\n"
+                "• Thinking text hidden",
+                title="Config Reset",
+                border_style="green",
+                expand=False,
+            )
+        )
 
         return config
 
@@ -165,7 +186,9 @@ class ConfigManager:
         Returns:
             str: Sanitized name safe for use in filenames
         """
-        sanitized = ''.join(c for c in config_name if c.isalnum() or c in ['-', '_']).lower()
+        sanitized = "".join(
+            c for c in config_name if c.isalnum() or c in ["-", "_"]
+        ).lower()
         return sanitized or "default"
 
     def _get_config_path(self, config_name: str) -> str:
@@ -198,63 +221,137 @@ class ConfigManager:
         if "model" in config_data:
             validated["model"] = config_data["model"]
 
-        if "enabledTools" in config_data and isinstance(config_data["enabledTools"], dict):
+        if "enabledTools" in config_data and isinstance(
+            config_data["enabledTools"], dict
+        ):
             validated["enabledTools"] = config_data["enabledTools"]
 
-        if "contextSettings" in config_data and isinstance(config_data["contextSettings"], dict):
+        if "contextSettings" in config_data and isinstance(
+            config_data["contextSettings"], dict
+        ):
             if "retainContext" in config_data["contextSettings"]:
-                validated["contextSettings"]["retainContext"] = bool(config_data["contextSettings"]["retainContext"])
+                validated["contextSettings"]["retainContext"] = bool(
+                    config_data["contextSettings"]["retainContext"]
+                )
 
-        if "modelSettings" in config_data and isinstance(config_data["modelSettings"], dict):
+        if "modelSettings" in config_data and isinstance(
+            config_data["modelSettings"], dict
+        ):
             if "thinkingMode" in config_data["modelSettings"]:
-                validated["modelSettings"]["thinkingMode"] = bool(config_data["modelSettings"]["thinkingMode"])
+                validated["modelSettings"]["thinkingMode"] = bool(
+                    config_data["modelSettings"]["thinkingMode"]
+                )
             if "showThinking" in config_data["modelSettings"]:
-                validated["modelSettings"]["showThinking"] = bool(config_data["modelSettings"]["showThinking"])
+                validated["modelSettings"]["showThinking"] = bool(
+                    config_data["modelSettings"]["showThinking"]
+                )
 
-        if "modelConfig" in config_data and isinstance(config_data["modelConfig"], dict):
+        if "modelConfig" in config_data and isinstance(
+            config_data["modelConfig"], dict
+        ):
             model_config = config_data["modelConfig"]
             if "system_prompt" in model_config:
-                validated["modelConfig"]["system_prompt"] = str(model_config["system_prompt"])
+                validated["modelConfig"]["system_prompt"] = str(
+                    model_config["system_prompt"]
+                )
             if "num_keep" in model_config:
-                validated["modelConfig"]["num_keep"] = model_config["num_keep"] if model_config["num_keep"] is not None else None
+                validated["modelConfig"]["num_keep"] = (
+                    model_config["num_keep"]
+                    if model_config["num_keep"] is not None
+                    else None
+                )
             if "seed" in model_config:
-                validated["modelConfig"]["seed"] = model_config["seed"] if model_config["seed"] is not None else None
+                validated["modelConfig"]["seed"] = (
+                    model_config["seed"] if model_config["seed"] is not None else None
+                )
             if "num_predict" in model_config:
-                validated["modelConfig"]["num_predict"] = model_config["num_predict"] if model_config["num_predict"] is not None else None
+                validated["modelConfig"]["num_predict"] = (
+                    model_config["num_predict"]
+                    if model_config["num_predict"] is not None
+                    else None
+                )
             if "top_k" in model_config:
-                validated["modelConfig"]["top_k"] = model_config["top_k"] if model_config["top_k"] is not None else None
+                validated["modelConfig"]["top_k"] = (
+                    model_config["top_k"] if model_config["top_k"] is not None else None
+                )
             if "top_p" in model_config:
-                validated["modelConfig"]["top_p"] = model_config["top_p"] if model_config["top_p"] is not None else None
+                validated["modelConfig"]["top_p"] = (
+                    model_config["top_p"] if model_config["top_p"] is not None else None
+                )
             if "min_p" in model_config:
-                validated["modelConfig"]["min_p"] = model_config["min_p"] if model_config["min_p"] is not None else None
+                validated["modelConfig"]["min_p"] = (
+                    model_config["min_p"] if model_config["min_p"] is not None else None
+                )
             if "typical_p" in model_config:
-                validated["modelConfig"]["typical_p"] = model_config["typical_p"] if model_config["typical_p"] is not None else None
+                validated["modelConfig"]["typical_p"] = (
+                    model_config["typical_p"]
+                    if model_config["typical_p"] is not None
+                    else None
+                )
             if "repeat_last_n" in model_config:
-                validated["modelConfig"]["repeat_last_n"] = model_config["repeat_last_n"] if model_config["repeat_last_n"] is not None else None
+                validated["modelConfig"]["repeat_last_n"] = (
+                    model_config["repeat_last_n"]
+                    if model_config["repeat_last_n"] is not None
+                    else None
+                )
             if "temperature" in model_config:
-                validated["modelConfig"]["temperature"] = model_config["temperature"] if model_config["temperature"] is not None else None
+                validated["modelConfig"]["temperature"] = (
+                    model_config["temperature"]
+                    if model_config["temperature"] is not None
+                    else None
+                )
             if "repeat_penalty" in model_config:
-                validated["modelConfig"]["repeat_penalty"] = model_config["repeat_penalty"] if model_config["repeat_penalty"] is not None else None
+                validated["modelConfig"]["repeat_penalty"] = (
+                    model_config["repeat_penalty"]
+                    if model_config["repeat_penalty"] is not None
+                    else None
+                )
             if "presence_penalty" in model_config:
-                validated["modelConfig"]["presence_penalty"] = model_config["presence_penalty"] if model_config["presence_penalty"] is not None else None
+                validated["modelConfig"]["presence_penalty"] = (
+                    model_config["presence_penalty"]
+                    if model_config["presence_penalty"] is not None
+                    else None
+                )
             if "frequency_penalty" in model_config:
-                validated["modelConfig"]["frequency_penalty"] = model_config["frequency_penalty"] if model_config["frequency_penalty"] is not None else None
+                validated["modelConfig"]["frequency_penalty"] = (
+                    model_config["frequency_penalty"]
+                    if model_config["frequency_penalty"] is not None
+                    else None
+                )
             if "stop" in model_config:
-                validated["modelConfig"]["stop"] = model_config["stop"] if model_config["stop"] is not None else None
+                validated["modelConfig"]["stop"] = (
+                    model_config["stop"] if model_config["stop"] is not None else None
+                )
             if "num_ctx" in model_config:
-                validated["modelConfig"]["num_ctx"] = model_config["num_ctx"] if model_config["num_ctx"] is not None else None
+                validated["modelConfig"]["num_ctx"] = (
+                    model_config["num_ctx"]
+                    if model_config["num_ctx"] is not None
+                    else None
+                )
 
-        if "displaySettings" in config_data and isinstance(config_data["displaySettings"], dict):
+        if "displaySettings" in config_data and isinstance(
+            config_data["displaySettings"], dict
+        ):
             if "showToolExecution" in config_data["displaySettings"]:
-                validated["displaySettings"]["showToolExecution"] = bool(config_data["displaySettings"]["showToolExecution"])
+                validated["displaySettings"]["showToolExecution"] = bool(
+                    config_data["displaySettings"]["showToolExecution"]
+                )
             if "showMetrics" in config_data["displaySettings"]:
-                validated["displaySettings"]["showMetrics"] = bool(config_data["displaySettings"]["showMetrics"])
+                validated["displaySettings"]["showMetrics"] = bool(
+                    config_data["displaySettings"]["showMetrics"]
+                )
 
-        if "hilSettings" in config_data and isinstance(config_data["hilSettings"], dict):
+        if "hilSettings" in config_data and isinstance(
+            config_data["hilSettings"], dict
+        ):
             if "enabled" in config_data["hilSettings"]:
-                validated["hilSettings"]["enabled"] = bool(config_data["hilSettings"]["enabled"])
+                validated["hilSettings"]["enabled"] = bool(
+                    config_data["hilSettings"]["enabled"]
+                )
 
-        if "installed_servers" in config_data and isinstance(config_data["installed_servers"], list):
+        if "installed_servers" in config_data and isinstance(
+            config_data["installed_servers"], list
+        ):
             validated["installed_servers"] = config_data["installed_servers"]
 
         # Preserve Smithery API key
@@ -268,7 +365,9 @@ class ConfigManager:
         config_data = self.load_configuration(config_name)
         return config_data.get("installed_servers", [])
 
-    def add_installed_server(self, server_data: Dict[str, Any], config_name: Optional[str] = None):
+    def add_installed_server(
+        self, server_data: Dict[str, Any], config_name: Optional[str] = None
+    ):
         """Add a server to the list of installed servers."""
         config_data = self.load_configuration(config_name)
         installed_servers = config_data.get("installed_servers", [])
@@ -276,10 +375,14 @@ class ConfigManager:
         config_data["installed_servers"] = installed_servers
         self.save_configuration(config_data, config_name)
 
-    def remove_installed_server(self, server_name: str, config_name: Optional[str] = None):
+    def remove_installed_server(
+        self, server_name: str, config_name: Optional[str] = None
+    ):
         """Remove a server from the list of installed servers."""
         config_data = self.load_configuration(config_name)
         installed_servers = config_data.get("installed_servers", [])
-        updated_servers = [s for s in installed_servers if s.get("qualifiedName") != server_name]
+        updated_servers = [
+            s for s in installed_servers if s.get("qualifiedName") != server_name
+        ]
         config_data["installed_servers"] = updated_servers
         self.save_configuration(config_data, config_name)
