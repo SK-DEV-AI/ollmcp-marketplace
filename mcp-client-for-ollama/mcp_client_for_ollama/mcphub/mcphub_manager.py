@@ -9,11 +9,14 @@ with enterprise-grade configuration management.
 import asyncio
 import functools
 import httpx
+import json
+from typing import Dict, List, Any
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
 from prompt_toolkit import PromptSession
+from rich.prompt import Prompt, Confirm
 from typing import Optional
 
 from .smithery_client import SmitheryClient
@@ -311,19 +314,213 @@ class MCPHubManager:
             self.console.print("[red]Invalid option. Please select 1-14.[/red]")
 
     # Placeholder implementations for main methods
-    async def search_servers(self):
-        """Search and install servers with advanced features."""
-        self.console.print("[yellow]Search functionality not yet implemented.[/yellow]")
-        await self.prompt_session.prompt_async(
-            "Press Enter to continue...", is_password=False
+    async def search_servers(self) -> None:
+        """Search and install servers with advanced features.
+
+        This method implements the full search and installation workflow using the Smithery registry.
+        """
+        # Prompt for search query
+        query_panel = Panel(
+            "[bold]Advanced Server Search[/bold]\n\n"
+            "[dim]Tip: Use filters like 'owner:username', 'is:verified', 'filesystem', etc.[/dim]",
+            title="[search] Search Servers",
+            border_style="blue",
         )
+        self.console.print(query_panel)
+
+        query: str = await self.prompt_session.prompt_async("Enter search query: ")
+        if not query.strip():
+            self.console.print("[yellow]No query entered. Returning to menu.[/yellow]")
+            return
+
+        try:
+            # Search servers
+            self.console.print(f"[cyan]Searching for servers matching '{query}'...[/cyan]")
+            servers_data: Dict[str, Any] = await self.smithery_client.search_servers(query=query.strip(), page=1, page_size=10)
+
+            if not servers_data or "servers" not in servers_data or not servers_data["servers"]:
+                self.console.print("[yellow]No servers found for your query.[/yellow]")
+                await self.prompt_session.prompt_async("Press Enter to continue...")
+                return
+
+            servers: List[Dict[str, Any]] = servers_data["servers"]
+            total_servers: int = len(servers)
+
+            # Display results in a table
+            table = Table(title=f"Search Results for '{query}' ({total_servers} server(s))")
+            table.add_column("ID", style="cyan", no_wrap=True)
+            table.add_column("Name", style="bold magenta")
+            table.add_column("Description", style="dim white")
+            table.add_column("Tools", justify="right", style="green")
+            table.add_column("Security", justify="right", style="yellow")
+
+            for i, server in enumerate(servers, 1):
+                name: str = server.get("displayName", server.get("qualifiedName", "Unknown"))
+                desc: str = server.get("description", "")[:100] + "..." if len(server.get("description", "")) > 100 else server.get("description", "")
+                tools_count: int = len(server.get("tools", []))
+                security: str = server.get("security", "Unverified")
+
+                table.add_row(str(i), name, desc, str(tools_count), security)
+
+            self.console.print(table)
+
+            # Prompt for server selection
+            selection_panel = Panel(
+                "[bold]Select Server to Install[/bold]\n\n"
+                f"[dim]Enter server ID (1-{total_servers}), (s)earch again, or (q)uit:[/dim]",
+                title="[select] Choose Server",
+                border_style="green",
+            )
+            self.console.print(selection_panel)
+
+            selection: str = await self.prompt_session.prompt_async("Enter server ID: ").strip().lower()
+
+            if selection == "s":
+                await self.search_servers()  # Recursive search
+                return
+            elif selection == "q":
+                return
+
+            try:
+                server_index: int = int(selection) - 1
+                if 0 <= server_index < total_servers:
+                    selected_server: Dict[str, Any] = servers[server_index]
+                    selected_id: str = selected_server.get("qualifiedName", "")
+
+                    # Preview selected server
+                    preview_panel = Panel(
+                        f"[bold cyan]Name:[/bold cyan] {selected_server.get('displayName', 'N/A')}\n"
+                        f"[bold cyan]Description:[/bold cyan] {selected_server.get('description', 'N/A')}\n"
+                        f"[bold cyan]Security:[/bold cyan] {selected_server.get('security', 'Unverified')}\n"
+                        f"[bold cyan]Available Tools:[/bold cyan] {len(selected_server.get('tools', []))}\n"
+                        f"[bold cyan]Qualified Name:[/bold cyan] {selected_id}",
+                        title=f"[preview] Server Preview: {selected_id}",
+                        border_style="blue",
+                    )
+                    self.console.print(preview_panel)
+
+                    if Confirm.ask("Install this server?"):
+                        await self._install_server(selected_id)
+                    else:
+                        self.console.print("[yellow]Installation cancelled.[/yellow]")
+                else:
+                    self.console.print("[red]Invalid selection.[/red]")
+            except ValueError:
+                self.console.print("[red]Invalid input. Please enter a number.[/red]")
+
+            await self.prompt_session.prompt_async("Press Enter to continue...")
+
+        except Exception as e:
+            self.console.print(f"[red]Error during search: {str(e)}[/red]")
+            await self.prompt_session.prompt_async("Press Enter to continue...")
+
+    async def _install_server(self, server_id: str) -> None:
+        """Install a specific server from the registry.
+
+        Args:
+            server_id: The qualified name of the server to install.
+        """
+        try:
+            # Fetch full server details
+            self.console.print(f"[cyan]Fetching details for {server_id}...[/cyan]")
+            server_details: Dict[str, Any] = await self.smithery_client.get_server(server_id)
+
+            if not server_details:
+                self.console.print("[red]Failed to fetch server details.[/red]")
+                return
+
+            # Prepare server data for config
+            qualified_name: str = server_details.get("qualifiedName", server_id)
+            server_data: Dict[str, Any] = {
+                "qualifiedName": qualified_name,
+                "displayName": server_details.get("displayName", qualified_name),
+                "description": server_details.get("description", ""),
+                "tools": server_details.get("tools", []),
+                "security": server_details.get("security", "Unverified"),
+                "connections": server_details.get("connections", []),
+                "config": {},  # Will be populated with user input
+                "enabled": True,
+            }
+
+            # Prompt for configuration parameters (generic, can be extended per server type)
+            self.console.print(f"[cyan]Configuring {qualified_name}...[/cyan]")
+
+            # Example: For filesystem servers, prompt for allowed directories
+            if "filesystem" in qualified_name.lower() or "file" in server_details.get("description", "").lower():
+                allowed_dir: str = Prompt.ask(
+                    "The absolute path to an allowed directory for the filesystem server. "
+                    "For example, in the Docker container '/app' is a good default.",
+                    default="/home/sk/"
+                )
+                additional_dirs: str = Prompt.ask(
+                    "Optional additional allowed directories (comma-separated).",
+                    default="/home/sk/Documents/"
+                )
+                server_data["config"] = {
+                    "allowedDirectory": allowed_dir.strip(),
+                    "additionalDirectories": [d.strip() for d in additional_dirs.split(",") if d.strip()],
+                }
+            else:
+                # Generic config prompt
+                config_input: str = Prompt.ask("Enter any configuration (JSON) or press Enter for default", default="{}")
+                try:
+                    server_data["config"] = json.loads(config_input) if config_input else {}
+                except json.JSONDecodeError as e:
+                    self.console.print(f"[yellow]Invalid JSON: {e}. Using default config.[/yellow]")
+                    server_data["config"] = {}
+
+            # Add to installed servers
+            self.config_manager.add_installed_server(server_data, self.config_name)
+
+            # Success message
+            success_panel = Panel(
+                f"[bold green]Installation Successful![/bold green]\n\n"
+                f"[bold cyan]Server:[/bold cyan] {qualified_name}\n"
+                f"[bold cyan]Config:[/bold cyan] {len(server_data['config'])} parameters set\n"
+                f"[bold cyan]Status:[/bold cyan] Enabled and ready to use\n\n"
+                f"[dim]Configuration:[/dim]\n"
+                f"{json.dumps(server_data['config'], indent=2)}",
+                title=f"[installed] {qualified_name}",
+                border_style="green",
+            )
+            self.console.print(success_panel)
+
+            # Reload servers in main client
+            await self.client.reload_servers()
+
+        except Exception as e:
+            self.console.print(f"[red]Installation failed: {str(e)}[/red]")
 
     async def view_server_categories(self):
         """View servers organized by categories."""
-        self.console.print("[yellow]Category view not yet implemented.[/yellow]")
-        await self.prompt_session.prompt_async(
-            "Press Enter to return to main menu...", is_password=False
-        )
+        installed_servers = self.config_manager.get_installed_servers(self.config_name)
+        if not installed_servers:
+            self.console.print("[yellow]No installed servers to categorize.[/yellow]")
+            await self.prompt_session.prompt_async("Press Enter to return to main menu...")
+            return
+
+        categories = await self._organize_servers_by_category(installed_servers)
+
+        category_table = Table(title="Server Categories")
+        category_table.add_column("Category", style="bold cyan")
+        category_table.add_column("Icon", style="magenta")
+        category_table.add_column("Servers", style="white")
+        category_table.add_column("Total Tools", justify="right", style="green")
+
+        for category_name, category_data in categories.items():
+            if category_data["servers"]:
+                servers_list = ", ".join([s.get("displayName", s.get("qualifiedName", "Unknown")) for s in category_data["servers"]])[:50] + ("..." if len(", ".join([s.get("displayName", s.get("qualifiedName", "Unknown")) for s in category_data["servers"]])) > 50 else "")
+                category_table.add_row(
+                    category_name,
+                    category_data["icon"],
+                    servers_list,
+                    str(category_data["total_tools"])
+                )
+
+        self.console.print(category_table)
+
+        # Prompt to continue
+        await self.prompt_session.prompt_async("Press Enter to return to main menu...")
 
     async def configure_api_key(self):
         """Configure Smithery API key."""

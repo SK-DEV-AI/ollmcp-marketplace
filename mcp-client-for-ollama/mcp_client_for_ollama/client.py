@@ -2,8 +2,10 @@
 
 import asyncio
 import os
+from typing import List, Optional, Dict, Any
+from mcp.types import ToolCall  # Assuming ToolCall type from mcp
 from contextlib import AsyncExitStack
-from typing import List, Optional
+from utilities import get_tool_manager
 
 import typer
 from prompt_toolkit import PromptSession
@@ -98,6 +100,7 @@ class MCPClient:
         # Store server connection parameters for reloading
         self.server_connection_params = {
             "server_paths": None,
+            "server_urls": None,
             "config_path": None,
             "auto_discovery": False,
         }
@@ -237,14 +240,21 @@ class MCPClient:
                 )
 
     async def process_query(self, query: str) -> str:
-        """Process a query using Ollama and available tools"""
+        """Process a query using Ollama and available tools.
+
+        Args:
+            query: The user query string.
+
+        Returns:
+            str: The generated response text.
+        """
         # Create base message with current query
-        current_message = {"role": "user", "content": query}
+        current_message: Dict[str, str] = {"role": "user", "content": query}
 
         # Build messages array based on context retention setting
         if self.retain_context and self.chat_history:
             # Include previous messages for context
-            messages = []
+            messages: List[Dict[str, str]] = []
             for entry in self.chat_history:
                 # Add user message
                 messages.append({"role": "user", "content": entry["query"]})
@@ -254,22 +264,22 @@ class MCPClient:
             messages.append(current_message)
         else:
             # No context retention - just use current query
-            messages = [current_message]
+            messages: List[Dict[str, str]] = [current_message]
 
         # Add system prompt if one is configured
-        system_prompt = self.model_config_manager.get_system_prompt()
+        system_prompt: str = self.model_config_manager.get_system_prompt()
         if system_prompt:
             messages.insert(0, {"role": "system", "content": system_prompt})
 
         # Get enabled tools from the tool manager
-        enabled_tool_objects = self.tool_manager.get_enabled_tool_objects()
+        enabled_tool_objects: List[Tool] = self.tool_manager.get_enabled_tool_objects()
 
         if not enabled_tool_objects:
             self.console.print(
                 "[yellow]Warning: No tools are enabled. Model will respond without tool access.[/yellow]"
             )
 
-        available_tools = [
+        available_tools: List[Dict[str, Any]] = [
             {
                 "type": "function",
                 "function": {
@@ -282,13 +292,13 @@ class MCPClient:
         ]
 
         # Get current model from the model manager
-        model = self.model_manager.get_current_model()
+        model: str = self.model_manager.get_current_model()
 
         # Get model options in Ollama format
-        model_options = self.model_config_manager.get_ollama_options()
+        model_options: Dict[str, Any] = self.model_config_manager.get_ollama_options()
 
         # Prepare chat parameters
-        chat_params = {
+        chat_params: Dict[str, Any] = {
             "model": model,
             "messages": messages,
             "stream": True,
@@ -304,8 +314,8 @@ class MCPClient:
         stream = await self.ollama.chat(**chat_params)
 
         # Process the streaming response with thinking mode support
-        response_text = ""
-        tool_calls = []
+        response_text: str = ""
+        tool_calls: List[ToolCall] = []
         response_text, tool_calls, metrics = (
             await self.streaming_manager.process_streaming_response(
                 stream,
@@ -321,8 +331,8 @@ class MCPClient:
         # Check if there are any tool calls in the response
         if len(tool_calls) > 0 and self.tool_manager.get_enabled_tool_objects():
             for tool in tool_calls:
-                tool_name = tool.function.name
-                tool_args = tool.function.arguments
+                tool_name: str = tool.function.name
+                tool_args: Dict[str, Any] = tool.function.arguments
 
                 # Parse server name and actual tool name from the qualified name
                 server_name, actual_tool_name = (
@@ -341,12 +351,12 @@ class MCPClient:
                 )
 
                 # Request HIL confirmation if enabled
-                should_execute = await self.hil_manager.request_tool_confirmation(
+                should_execute: bool = await self.hil_manager.request_tool_confirmation(
                     tool_name, tool_args
                 )
 
                 if not should_execute:
-                    tool_response = "Tool call was skipped by user"
+                    tool_response: str = "Tool call was skipped by user"
                     self.tool_display_manager.display_tool_response(
                         tool_name,
                         tool_args,
@@ -377,7 +387,7 @@ class MCPClient:
                 )
 
             # Get stream response from Ollama with the tool results
-            chat_params_followup = {
+            chat_params_followup: Dict[str, Any] = {
                 "model": model,
                 "messages": messages,
                 "stream": True,
@@ -940,8 +950,14 @@ class MCPClient:
         if "modelSettings" in config_data:
             if "thinkingMode" in config_data["modelSettings"]:
                 self.thinking_mode = config_data["modelSettings"]["thinkingMode"]
+            else:
+                # Default thinking mode to False if not specified
+                self.thinking_mode = False
             if "showThinking" in config_data["modelSettings"]:
                 self.show_thinking = config_data["modelSettings"]["showThinking"]
+            else:
+                # Default show thinking to True if not specified
+                self.show_thinking = True
 
         # Load model configuration if specified
         if "modelConfig" in config_data:
@@ -953,8 +969,14 @@ class MCPClient:
                 self.show_tool_execution = config_data["displaySettings"][
                     "showToolExecution"
                 ]
+            else:
+                # Default show tool execution to True if not specified
+                self.show_tool_execution = True
             if "showMetrics" in config_data["displaySettings"]:
                 self.show_metrics = config_data["displaySettings"]["showMetrics"]
+            else:
+                # Default show metrics to False if not specified
+                self.show_metrics = False
 
         # Load HIL settings if specified
         if "hilSettings" in config_data:

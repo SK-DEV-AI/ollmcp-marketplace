@@ -5,8 +5,7 @@ the MCP Client for Ollama, including tool settings and model preferences.
 """
 
 import json
-import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from rich.console import Console
 from rich.panel import Panel
 from ..utils.constants import DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE
@@ -18,13 +17,14 @@ class ConfigManager:
 
     This class handles loading, saving, and validating configuration settings,
     including enabled tools, selected model, and context retention preferences.
+    It ensures robustness by validating loaded data and providing defaults.
     """
 
-    def __init__(self, console: Optional[Console] = None):
+    def __init__(self, console: Optional[Console] = None) -> None:
         """Initialize the ConfigManager.
 
         Args:
-            console: Rich console for output (optional)
+            console: Rich console for output (optional).
         """
         self.console = console or Console()
 
@@ -32,10 +32,10 @@ class ConfigManager:
         """Check if a configuration file exists without printing messages.
 
         Args:
-            config_name: Optional name of the config to check (defaults to 'default')
+            config_name: Optional name of the config to check (defaults to 'default').
 
         Returns:
-            bool: True if the configuration file exists, False otherwise
+            bool: True if the configuration file exists, False otherwise.
         """
         # Default to 'default' if no config name provided
         if not config_name:
@@ -45,7 +45,7 @@ class ConfigManager:
         config_name = self._sanitize_config_name(config_name)
 
         # Create config file path
-        config_path = self._get_config_path(config_name)
+        config_path: str = self._get_config_path(config_name)
 
         # Check if config file exists
         return os.path.exists(config_path)
@@ -54,10 +54,10 @@ class ConfigManager:
         """Load tool configuration and model settings from a file.
 
         Args:
-            config_name: Optional name of the config to load (defaults to 'default')
+            config_name: Optional name of the config to load (defaults to 'default').
 
         Returns:
-            Dict containing the configuration settings
+            Dict containing the configuration settings.
         """
         # Default to 'default' if no config name provided
         if not config_name:
@@ -67,7 +67,7 @@ class ConfigManager:
         config_name = self._sanitize_config_name(config_name)
 
         # Create config file path
-        config_path = self._get_config_path(config_name)
+        config_path: str = self._get_config_path(config_name)
 
         # Check if config file exists
         if not os.path.exists(config_path):
@@ -85,12 +85,22 @@ class ConfigManager:
         # Read config file
         try:
             with open(config_path, "r") as f:
-                config_data = json.load(f)
+                config_data: Dict[str, Any] = json.load(f)
 
             # Validate loaded configuration and provide defaults for missing fields
-            validated_config = self._validate_config(config_data)
+            validated_config: Dict[str, Any] = self._validate_config(config_data)
             return validated_config
 
+        except json.JSONDecodeError as e:
+            self.console.print(
+                Panel(
+                    f"[red]Error loading configuration: Invalid JSON format - {str(e)}[/red]",
+                    title="JSON Error",
+                    border_style="red",
+                    expand=False,
+                )
+            )
+            return default_config()
         except Exception as e:
             self.console.print(
                 Panel(
@@ -108,11 +118,11 @@ class ConfigManager:
         """Save tool configuration and model settings to a file.
 
         Args:
-            config_data: Dictionary containing the configuration to save
-            config_name: Optional name for the config (defaults to 'default')
+            config_data: Dictionary containing the configuration to save.
+            config_name: Optional name for the config (defaults to 'default').
 
         Returns:
-            bool: True if saved successfully, False otherwise
+            bool: True if saved successfully, False otherwise.
         """
         # Create config directory if it doesn't exist
         os.makedirs(DEFAULT_CONFIG_DIR, exist_ok=True)
@@ -125,7 +135,7 @@ class ConfigManager:
         config_name = self._sanitize_config_name(config_name)
 
         # Create config file path
-        config_path = self._get_config_path(config_name)
+        config_path: str = self._get_config_path(config_name)
 
         # Write to file
         try:
@@ -158,9 +168,9 @@ class ConfigManager:
         """Reset tool configuration to default (all tools enabled).
 
         Returns:
-            Dict containing the default configuration
+            Dict containing the default configuration.
         """
-        config = default_config()
+        config: Dict[str, Any] = default_config()
 
         self.console.print(
             Panel(
@@ -181,12 +191,12 @@ class ConfigManager:
         """Sanitize configuration name for use in filenames.
 
         Args:
-            config_name: Name to sanitize
+            config_name: Name to sanitize.
 
         Returns:
-            str: Sanitized name safe for use in filenames
+            str: Sanitized name safe for use in filenames.
         """
-        sanitized = "".join(
+        sanitized: str = "".join(
             c for c in config_name if c.isalnum() or c in ["-", "_"]
         ).lower()
         return sanitized or "default"
@@ -195,10 +205,10 @@ class ConfigManager:
         """Get the full path to a configuration file.
 
         Args:
-            config_name: Name of the configuration
+            config_name: Name of the configuration.
 
         Returns:
-            str: Full path to the configuration file
+            str: Full path to the configuration file.
         """
         if config_name == "default":
             return os.path.join(DEFAULT_CONFIG_DIR, DEFAULT_CONFIG_FILE)
@@ -208,14 +218,17 @@ class ConfigManager:
     def _validate_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate configuration data and provide defaults for missing fields.
 
+        This method merges loaded config with defaults, validates types, and warns about issues
+        like invalid API keys. It ensures the config is always usable.
+
         Args:
-            config_data: Configuration data to validate
+            config_data: Configuration data to validate.
 
         Returns:
-            Dict: Validated configuration with defaults applied where needed
+            Dict: Validated configuration with defaults applied where needed.
         """
         # Start with default configuration
-        validated = default_config()
+        validated: Dict[str, Any] = default_config()
 
         # Apply values from the loaded configuration if they exist
         if "model" in config_data:
@@ -355,33 +368,63 @@ class ConfigManager:
             validated["installed_servers"] = config_data["installed_servers"]
 
         # Preserve Smithery API key if it's valid (not empty string)
-        if "smithery_api_key" in config_data and config_data["smithery_api_key"]:
-            validated["smithery_api_key"] = config_data["smithery_api_key"]
+        if "smithery_api_key" in config_data:
+            api_key: str = config_data["smithery_api_key"]
+            if api_key and api_key.strip():  # Valid non-empty key
+                validated["smithery_api_key"] = api_key
+            else:
+                self.console.print(
+                    Panel(
+                        "[yellow]Warning: Invalid or empty Smithery API key detected in config. "
+                        "Please reconfigure using MCP-HUB option 11.[/yellow]",
+                        title="API Key Warning",
+                        border_style="yellow",
+                        expand=False,
+                    )
+                )
+                validated.pop("smithery_api_key", None)  # Remove invalid key
 
         return validated
 
-    def get_installed_servers(self, config_name: Optional[str] = None) -> list:
-        """Get the list of installed servers."""
-        config_data = self.load_configuration(config_name)
+    def get_installed_servers(self, config_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get the list of installed servers.
+
+        Args:
+            config_name: Optional config name (defaults to 'default').
+
+        Returns:
+            List of server dictionaries.
+        """
+        config_data: Dict[str, Any] = self.load_configuration(config_name)
         return config_data.get("installed_servers", [])
 
     def add_installed_server(
         self, server_data: Dict[str, Any], config_name: Optional[str] = None
-    ):
-        """Add a server to the list of installed servers."""
-        config_data = self.load_configuration(config_name)
-        installed_servers = config_data.get("installed_servers", [])
+    ) -> None:
+        """Add a server to the list of installed servers.
+
+        Args:
+            server_data: Dictionary containing server configuration.
+            config_name: Optional config name (defaults to 'default').
+        """
+        config_data: Dict[str, Any] = self.load_configuration(config_name)
+        installed_servers: List[Dict[str, Any]] = config_data.get("installed_servers", [])
         installed_servers.append(server_data)
         config_data["installed_servers"] = installed_servers
         self.save_configuration(config_data, config_name)
 
     def remove_installed_server(
         self, server_name: str, config_name: Optional[str] = None
-    ):
-        """Remove a server from the list of installed servers."""
-        config_data = self.load_configuration(config_name)
-        installed_servers = config_data.get("installed_servers", [])
-        updated_servers = [
+    ) -> None:
+        """Remove a server from the list of installed servers.
+
+        Args:
+            server_name: Qualified name of the server to remove.
+            config_name: Optional config name (defaults to 'default').
+        """
+        config_data: Dict[str, Any] = self.load_configuration(config_name)
+        installed_servers: List[Dict[str, Any]] = config_data.get("installed_servers", [])
+        updated_servers: List[Dict[str, Any]] = [
             s for s in installed_servers if s.get("qualifiedName") != server_name
         ]
         config_data["installed_servers"] = updated_servers
