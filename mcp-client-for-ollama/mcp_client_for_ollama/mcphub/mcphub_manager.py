@@ -373,7 +373,7 @@ class MCPHubManager:
             )
             self.console.print(selection_panel)
 
-            selection: str = await self.prompt_session.prompt_async("Enter server ID: ").strip().lower()
+            selection: str = (await self.prompt_session.prompt_async("Enter server ID: ")).strip().lower()
 
             if selection == "s":
                 await self.search_servers()  # Recursive search

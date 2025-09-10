@@ -74,10 +74,11 @@ class ConfigManager:
         if not os.path.exists(config_path):
             self.console.print(
                 Panel(
-                    f"[yellow]Configuration file not found:[/yellow]\n"
-                    f"[blue]{config_path}[/blue]",
-                    title="Config Not Found",
-                    border_style="yellow",
+                    f"[dim]Configuration file not found:[/dim]\n"
+                    f"[dim]{config_path}[/dim]\n"
+                    f"[dim]Using default configuration.[/dim]",
+                    title="[dim]Config Not Found[/dim]",
+                    border_style="dim",
                     expand=False,
                 )
             )
