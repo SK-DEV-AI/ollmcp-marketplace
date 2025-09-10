@@ -350,7 +350,7 @@ class ServerConnector:
                 # Use the streamablehttp_client for Streamable HTTP connections
                 # Authentication is handled through headers only
                 transport = await self.exit_stack.enter_async_context(
-                    streamablehttp_client(url, headers=headers)
+                    streamablehttp_client(url, headers=headers, auth=auth_provider)
                 )
 
                 read_stream, write_stream, session_info = transport
