@@ -332,10 +332,6 @@ class MCPHubManager:
         """Install a server (alias for add_server for compatibility)."""
         await self.add_server()
 
-    async def install_server(self):
-        """Install a server (alias for add_server for compatibility)."""
-        await self.add_server()
-
     async def add_server(self, server_details=None):
         """Professional server installation with smart configuration."""
         server_name = ""
@@ -1188,7 +1184,7 @@ class MCPHubManager:
             )
 
             if api_key:
-                self.smithery_client.set_api_key(api_key, self.config_name)
+                self.smithery_client.set_api_key(api_key)
                 success_panel = Panel(
                     "[bold green]API key configured successfully![/bold green]",
                     title="[success] API Key Set",
