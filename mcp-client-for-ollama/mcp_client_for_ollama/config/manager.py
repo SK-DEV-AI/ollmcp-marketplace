@@ -5,6 +5,7 @@ the MCP Client for Ollama, including tool settings and model preferences.
 """
 
 import json
+import os
 from typing import Dict, Any, Optional, List
 from rich.console import Console
 from rich.panel import Panel
