@@ -858,18 +858,7 @@ class MCPClient:
     def auto_load_default_config(self):
         """Automatically load the default configuration if it exists."""
         if self.config_manager.config_exists("default"):
-            self.console.print("[cyan]Loading default configuration...[/cyan]")
             self.default_configuration_status = self.load_configuration("default")
-
-            # Also update the model manager with the current model immediately after loading config
-            if self.default_configuration_status:
-                # Ensure the model manager shows the correct current model
-                config_data = self.config_manager.load_configuration("default")
-                if config_data and "model" in config_data:
-                    self.model_manager.set_model(config_data["model"])
-                    self.console.print(
-                        f"[green]Model set to: {config_data['model']}[/green]"
-                    )
 
     def print_auto_load_default_config_status(self):
         """Print the status of the auto-load default configuration."""
@@ -1230,9 +1219,7 @@ async def async_main(
                 )
                 auto_discovery_final = True
             else:
-                console.print(
-                    "[yellow]Warning: No servers specified and Claude config not found.[/yellow]"
-                )
+                console.print("[yellow]Warning: No servers specified![/yellow]")
 
     # Validate mcp-server paths exist
     if mcp_server:

@@ -442,32 +442,27 @@ class MCPHubManager:
                 "enabled": True,
             }
 
-            # Prompt for configuration parameters (generic, can be extended per server type)
-            self.console.print(f"[cyan]Configuring {qualified_name}...[/cyan]")
-
-            # Example: For filesystem servers, prompt for allowed directories
-            if "filesystem" in qualified_name.lower() or "file" in server_details.get("description", "").lower():
-                allowed_dir: str = Prompt.ask(
-                    "The absolute path to an allowed directory for the filesystem server. "
-                    "For example, in the Docker container '/app' is a good default.",
-                    default="/home/sk/"
-                )
-                additional_dirs: str = Prompt.ask(
-                    "Optional additional allowed directories (comma-separated).",
-                    default="/home/sk/Documents/"
-                )
-                server_data["config"] = {
-                    "allowedDirectory": allowed_dir.strip(),
-                    "additionalDirectories": [d.strip() for d in additional_dirs.split(",") if d.strip()],
-                }
+            # Set connection if not present
+            if not server_details.get("connections"):
+                self.console.print("[cyan]No connection information from registry. Setting up connection...[/cyan]")
+                conn_type: str = Prompt.ask("Connection type (stdio/sse/http)", default="stdio")
+                if conn_type == "stdio":
+                    local_path: str = Prompt.ask("Enter local script path for the server", default="")
+                    if local_path:
+                        server_data["local_script_path"] = local_path
+                    server_data["connections"] = [{"type": "stdio"}]
+                else:
+                    url: str = Prompt.ask("Enter server URL")
+                    server_data["connections"] = [{"type": conn_type, "url": url}]
             else:
-                # Generic config prompt
-                config_input: str = Prompt.ask("Enter any configuration (JSON) or press Enter for default", default="{}")
-                try:
-                    server_data["config"] = json.loads(config_input) if config_input else {}
-                except json.JSONDecodeError as e:
-                    self.console.print(f"[yellow]Invalid JSON: {e}. Using default config.[/yellow]")
-                    server_data["config"] = {}
+                # Check if stdio connection and prompt for local path if missing
+                connections: List[Dict[str, Any]] = server_details.get("connections", [])
+                for conn in connections:
+                    if conn.get("type") == "stdio" and "local_script_path" not in server:
+                        local_path: str = Prompt.ask("Enter local script path for stdio server", default="")
+                        if local_path:
+                            server["local_script_path"] = local_path
+                        break
 
             # Add to installed servers
             self.config_manager.add_installed_server(server_data, self.config_name)
