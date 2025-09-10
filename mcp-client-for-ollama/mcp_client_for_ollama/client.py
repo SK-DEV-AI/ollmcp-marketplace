@@ -297,7 +297,7 @@ class MCPClient:
         model_options: Dict[str, Any] = self.model_config_manager.get_ollama_options()
 
         # Prepare chat parameters
-       chat_params: Dict[str, Any] = {
+        chat_params: Dict[str, Any] = {
             "model": model,
             "messages": messages,
             "stream": True,
@@ -330,8 +330,8 @@ class MCPClient:
         # Check if there are any tool calls in the response
         if len(tool_calls) > 0 and self.tool_manager.get_enabled_tool_objects():
             for tool in tool_calls:
-                tool_name: str = tool.function.name
-                tool_args: Dict[str, Any] = tool.function.arguments
+                tool_name: str = tool["function"]["name"]
+                tool_args: Dict[str, Any] = tool["function"]["arguments"]
 
                 # Parse server name and actual tool name from the qualified name
                 server_name, actual_tool_name = (
