@@ -4,7 +4,6 @@ import asyncio
 import os
 from typing import List, Optional, Dict, Any
 from contextlib import AsyncExitStack
-from utilities import get_tool_manager
 
 import typer
 from prompt_toolkit import PromptSession
